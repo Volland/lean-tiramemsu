@@ -10,11 +10,13 @@ cd "$ROOT"
 mode="${1:-ci}"
 step() { echo; echo "== $*"; }
 
+step "dependencies: fetch the pinned packages and the Mathlib cache"
+lake exe cache get
+
 step "pins: toolchain and dependencies"
 scripts/check-pins.sh
 
-step "build: Mathlib cache and default targets (runtime, proofs, executable)"
-lake exe cache get
+step "build: default targets (runtime, proofs, executable)"
 lake build
 lake build policy-check tiramemsu-tests oracle PolicyFixtures
 
