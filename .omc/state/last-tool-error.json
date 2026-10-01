@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /Users/volodymyrpavlyshyn/Documents/work/tiramemsu && awk '/^## Predicate Schema/,/^## [A-Z][a-z]+ [A-Z]/' lat.md/data-model.md | head -50; echo =====; awk '/^## Volatile Table/,/^## In...",
+  "error": "Exit code 1\n## Predicate Schema\n(eval):1: ==== not found",
+  "timestamp": "2026-10-01T07:37:55.344Z",
+  "retry_count": 7
+}

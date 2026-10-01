@@ -1,0 +1,354 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1790838054987,
+  "projectRoot": "/Users/volodymyrpavlyshyn/Documents/work/lean-tiramemsu",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "lat.md": {
+      "path": "lat.md",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1790838054970,
+      "keyFiles": [
+        "lat.md"
+      ]
+    },
+    "openspec": {
+      "path": "openspec",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1790838054972,
+      "keyFiles": [
+        "config.yaml"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "openspec/changes/m5-cypher-frontend/specs/cypher-read/spec.md",
+      "accessCount": 3,
+      "lastAccessed": 1790840588638,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m5-cypher-frontend/specs/cypher-temporal-clauses/spec.md",
+      "accessCount": 3,
+      "lastAccessed": 1790840723916,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m0-lean-foundation/design.md",
+      "accessCount": 2,
+      "lastAccessed": 1790840629333,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m3b-leapfrog-triejoin/design.md",
+      "accessCount": 2,
+      "lastAccessed": 1790840645889,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m4-sparql-frontend/specs/sparql-query/spec.md",
+      "accessCount": 2,
+      "lastAccessed": 1790840729181,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m3a-ir-evaluator-paths/design.md",
+      "accessCount": 2,
+      "lastAccessed": 1790840735008,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m0-lean-foundation/specs/differential-oracle/spec.md",
+      "accessCount": 2,
+      "lastAccessed": 1790840764773,
+      "type": "file"
+    },
+    {
+      "path": "lat.md/lat.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840060263,
+      "type": "file"
+    },
+    {
+      "path": "lat.md/overview.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840061336,
+      "type": "file"
+    },
+    {
+      "path": "lat.md/architecture.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840062440,
+      "type": "file"
+    },
+    {
+      "path": "lat.md/verification.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840063527,
+      "type": "file"
+    },
+    {
+      "path": "lat.md/roadmap.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840064598,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m5-cypher-frontend/proposal.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840384326,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m6-bindings-c-abi/proposal.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840396586,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m4-sparql-frontend/proposal.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840403318,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m3b-leapfrog-triejoin/proposal.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840420192,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m2-verified-store/proposal.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840455510,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m5-cypher-frontend/design.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840466753,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m0-lean-foundation/proposal.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840533338,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m1-verified-codec/proposal.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840534150,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m6-bindings-c-abi/design.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840549372,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m4-sparql-frontend/design.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840573630,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m6-bindings-c-abi/specs/c-abi/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840587401,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m1-verified-codec/design.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840609790,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m6-bindings-c-abi/specs/json-bridge/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840638501,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m2-verified-store/design.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840640425,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m5-cypher-frontend/specs/cypher-write/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840640484,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m3b-leapfrog-triejoin/specs/leapfrog-triejoin/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840646965,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m3a-ir-evaluator-paths/proposal.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840655794,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m0-lean-foundation/specs/proof-policy/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840669074,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m6-bindings-c-abi/specs/node-binding/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840669350,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m5-cypher-frontend/specs/cypher-dual-view/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840670134,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m6-bindings-c-abi/specs/python-binding/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840670421,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m1-verified-codec/specs/object-encoding/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840672295,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m3b-leapfrog-triejoin/specs/join-planner/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840676251,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m2-verified-store/specs/statement-lifecycle/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840683603,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m2-verified-store/specs/transaction-log/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840684691,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m6-bindings-c-abi/specs/performance-gate/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840688468,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m3b-leapfrog-triejoin/tasks.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840700705,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m2-verified-store/specs/memory-verbs/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840717133,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m4-sparql-frontend/specs/sparql-update/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840730274,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m6-bindings-c-abi/tasks.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840731226,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m1-verified-codec/specs/literal-canonicalization/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840747299,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m0-lean-foundation/specs/store-contract/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840749734,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m0-lean-foundation/specs/sqlite-binding/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840750807,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m2-verified-store/specs/retraction-cascade/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840757714,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m5-cypher-frontend/specs/cypher-conformance/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840758449,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m2-verified-store/specs/temporal-views/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840758786,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m3a-ir-evaluator-paths/specs/query-ir/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840784070,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/m5-cypher-frontend/tasks.md",
+      "accessCount": 1,
+      "lastAccessed": 1790840799565,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}
