@@ -7,3 +7,7 @@ Tiramemsu.Store.Model
 Tiramemsu.Codec
 Tiramemsu.Term.Key
 Tiramemsu.Term.Dict
+Tiramemsu.Term.Backend
+Tiramemsu.Engine
+Tiramemsu.View
+Tiramemsu.Model

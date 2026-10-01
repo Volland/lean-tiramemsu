@@ -63,6 +63,40 @@ class WriteStore (m : Type → Type) extends ReadStore m where
   rollbackTo : String → m Unit
   /-- Closes the newest open savepoint of that name and every newer one, keeping writes. -/
   release : String → m Unit
+  /-- A named counter of `meta` as it was when the write transaction began (outside a
+  transaction: the committed value). The engine's write guards compare against it. -/
+  baseCounter : String → m (Option Int64)
+
+/-! ## Lifting through a reader (the writer's term cache is a `ReaderT` layer) -/
+
+instance {ρ : Type} {m : Type → Type} [ReadStore m] : ReadStore (ReaderT ρ m) where
+  scan sp init f := fun r => ReadStore.scan sp init (fun b row => f b row r)
+  triple e := fun _ => ReadStore.triple e
+  termById i := fun _ => ReadStore.termById i
+  termByKey tag lex dt lang := fun _ => ReadStore.termByKey tag lex dt lang
+  txByT t := fun _ => ReadStore.txByT t
+  txAtOrBefore i := fun _ => ReadStore.txAtOrBefore i
+  counter n := fun _ => ReadStore.counter n
+  volatileGet s k := fun _ => ReadStore.volatileGet s k
+  volatileOf s := fun _ => ReadStore.volatileOf s
+  predMulti p := fun _ => ReadStore.predMulti p
+
+instance {ρ : Type} {m : Type → Type} [WriteStore m] : WriteStore (ReaderT ρ m) where
+  insertTriple r := fun _ => WriteStore.insertTriple r
+  retract e t k := fun _ => WriteStore.retract e t k
+  insertTerm r := fun _ => WriteStore.insertTerm r
+  insertTx r := fun _ => WriteStore.insertTx r
+  setCounter n v := fun _ => WriteStore.setCounter n v
+  volatilePut r := fun _ => WriteStore.volatilePut r
+  volatileDel s k := fun _ => WriteStore.volatileDel s k
+  addPredMulti p := fun _ => WriteStore.addPredMulti p
+  begin := fun _ => WriteStore.begin
+  commit := fun _ => WriteStore.commit
+  rollback := fun _ => WriteStore.rollback
+  savepoint n := fun _ => WriteStore.savepoint n
+  rollbackTo n := fun _ => WriteStore.rollbackTo n
+  release n := fun _ => WriteStore.release n
+  baseCounter n := fun _ => WriteStore.baseCounter n
 
 /--
 Snapshot readers: separate handles that observe the committed state as of `beginRead`.

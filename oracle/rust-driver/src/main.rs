@@ -12,6 +12,7 @@
 //! The `codec*`, `termIntern` and `decodeFile` operations call `tm-core` directly (see `codec`).
 
 mod codec;
+mod m2;
 
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{json, Value as J};
@@ -22,6 +23,7 @@ use tiramemsu_json::Database;
 struct State {
     path: Option<String>,
     db: Option<Database>,
+    m2: Option<m2::M2>,
 }
 
 fn err(code: &str, message: impl Into<String>) -> J {
@@ -85,6 +87,27 @@ fn handle(state: &mut State, op: &str, args: &J) -> Result<J, J> {
             .clone()
             .ok_or_else(|| err("InvalidArgument", "no database is open"))
     };
+    if let Some(rest) = op.strip_prefix("m2.") {
+        return match rest {
+            "open" => {
+                state.db = None;
+                state.m2 = None;
+                let m = m2::open(args)?;
+                state.path = args.get("path").and_then(J::as_str).map(str::to_string);
+                state.m2 = Some(m);
+                Ok(J::Null)
+            }
+            "close" => {
+                state.m2 = None;
+                state.path = None;
+                Ok(J::Null)
+            }
+            _ => match &state.m2 {
+                Some(m) => m2::handle(m, op, args),
+                None => Err(err("InvalidArgument", "no m2 database is open")),
+            },
+        };
+    }
     match op {
         "open" => {
             let path = args
@@ -100,6 +123,7 @@ fn handle(state: &mut State, op: &str, args: &J) -> Result<J, J> {
         }
         "close" => {
             state.db = None;
+            state.m2 = None;
             state.path = None;
             Ok(J::Null)
         }
@@ -148,7 +172,7 @@ fn main() {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    let mut state = State { path: None, db: None };
+    let mut state = State { path: None, db: None, m2: None };
     for line in stdin.lock().lines() {
         let line = match line {
             Ok(l) => l,

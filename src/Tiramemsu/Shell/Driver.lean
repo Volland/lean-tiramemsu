@@ -12,6 +12,8 @@ import Tiramemsu.Shell.Json
 import Tiramemsu.Shell.ValueJson
 import Tiramemsu.Storage.Open
 import Tiramemsu.Term.Cache
+import Tiramemsu.Shell.Db
+import Tiramemsu.Shell.Bridge
 
 namespace Tiramemsu.Shell
 
@@ -104,6 +106,114 @@ def decodeFile (path : String) : IO (Except Json Json) := do
     st.close
     pure (match r with | .ok j => .ok j | .error e => .error (storeErrJ e))
 
+/-- An M2 database: a handle with a manual clock. -/
+structure M2 where
+  db : Db
+  clock : ManualClock
+
+/-- The M2 operations (`m2.open`, `m2.close`, `m2.setClock`, `m2.transact`, `m2.with`,
+`m2.read`): the bridge's transaction, speculation and read operations on a database opened with
+a manual clock, as the Rust driver's `m2.rs`. -/
+def handleM2 (cur : IO.Ref (Option M2)) (op : String) (args : Json) : IO (Except Json Json) := do
+  let argErr (m : String) : Except Json Json := .error (errJ "InvalidArgument" m)
+  match op with
+  | "m2.open" =>
+    match args.getStr? "path" with
+    | none => pure (argErr "`path` is required")
+    | some path =>
+      if let some m ← cur.get then m.db.close
+      cur.set none
+      let clock ← ManualClock.new ((args.getInt? "clock").getD 0)
+      match ← Db.open path {} clock.clock with
+      | .ok db => cur.set (some { db, clock }); pure (.ok .null)
+      | .error e => pure (.error (openErrJ e))
+  | "m2.close" =>
+    if let some m ← cur.get then m.db.close
+    cur.set none
+    pure (.ok .null)
+  | _ =>
+    match ← cur.get with
+    | none => pure (argErr "no m2 database is open")
+    | some m =>
+      match op with
+      | "m2.setClock" =>
+        match args.getInt? "ms" with
+        | some ms => m.clock.set ms; pure (.ok .null)
+        | none => pure (argErr "`ms` is required")
+      | "m2.transact" =>
+        match args.getArr? "ops", txOptionsOf ((args.get? "options").getD .null) with
+        | none, _ => pure (argErr "`ops` must be a list")
+        | _, .error e => pure (argErr e)
+        | some ops, .ok opts =>
+          match ← m.db.transact opts (opsProg ops) with
+          | .ok (results, r) =>
+            match reportJ r with
+            | .obj kvs => pure (.ok (.obj (kvs.push ("results", .arr results))))
+            | j => pure (.ok j)
+          | .error e => pure (.error (errorJ e))
+      | "m2.with" =>
+        match args.getArr? "ops", args.getArr? "queries" with
+        | none, _ => pure (argErr "`ops` must be a list")
+        | _, none => pure (argErr "`queries` must be a list")
+        | some ops, some qs =>
+          let validAt := match args.get? "validAt" with
+            | none | some .null => Except.ok none
+            | some j => timeOfJ j
+          match validAt with
+          | .error e => pure (argErr e)
+          | .ok d =>
+            match ← m.db.speculate (opsProg ops) d (queriesProg qs) with
+            | .ok r => pure (.ok (.obj #[("results", r)]))
+            | .error e => pure (.error (errorJ e))
+      | "m2.read" =>
+        match viewOfJ ((args.get? "view").getD .null), args.getStr? "op" with
+        | .error e, _ => pure (argErr e)
+        | _, none => pure (argErr "`op` is required")
+        | .ok v, some rop =>
+          m.db.withView v fun pv => do
+            match ← pv.run (readProg rop args) with
+            | .ok r => pure (.ok r)
+            | .error e => pure (.error (errorJ e))
+      | other => pure (argErr s!"unknown operation {other.quote}")
+
+/-- `bench` (`op`, `args`, `reps`): repeats a bridge write (`transact`) or read (`triples`,
+`values`, `dependents`, `events`, `graphs`, `graphMembers`) on the open file through a database
+handle, and reports the elapsed nanoseconds and the last result. Other operations are
+`Unsupported` (later milestones). -/
+def benchOp (cur : IO.Ref (Option Store)) (m2 : IO.Ref (Option M2)) (args : Json) :
+    IO (Except Json Json) := do
+  let some inner := args.getStr? "op" | pure (.error (errJ "InvalidArgument" "`op` is required"))
+  let a := (args.get? "args").getD .null
+  let reps := ((args.getInt? "reps").getD 1).toNat.max 1
+  let req : Option (String × Json) := match inner with
+    | "transact" => some ("m2.transact", a)
+    | "triples" | "values" | "dependents" | "events" | "graphs" | "graphMembers" =>
+      some ("m2.read", match a with
+        | .obj kvs => .obj (kvs.push ("op", .str inner))
+        | _ => .obj #[("op", .str inner)])
+    | _ => none
+  let some (op, a) := req
+    | pure (.error (errJ "Unsupported" s!"operation {inner} is not implemented by this build yet"))
+  -- the bench runs on a database handle over the file the raw store has open
+  if (← m2.get).isNone then
+    match ← cur.get with
+    | none => return .error (errJ "InvalidArgument" "no database is open")
+    | some st =>
+      st.close
+      cur.set none
+      match ← Db.open st.path with
+      | .ok db => m2.set (some { db, clock := ← ManualClock.new 0 })
+      | .error e => return .error (openErrJ e)
+  let t0 ← IO.monoNanosNow
+  let mut last : Except Json Json := .ok .null
+  for _ in [0:reps] do
+    last ← handleM2 m2 op a
+    if let .error _ := last then break
+  let ns := (← IO.monoNanosNow) - t0
+  match last with
+  | .ok r => pure (.ok (.obj #[("elapsedNs", .int ns), ("reps", .int reps), ("result", r)]))
+  | .error e => pure (.error e)
+
 /-- Handles one request; the store is the currently open database, if any. -/
 def handle (cur : IO.Ref (Option Store)) (op : String) (args : Json) : IO (Except Json Json) := do
   let run {α : Type} (x : SqlM α) : IO (Except Json α) := do
@@ -147,6 +257,7 @@ partial def driverMain : IO UInt32 := do
   let stdin ← IO.getStdin
   let stdout ← IO.getStdout
   let cur ← IO.mkRef (none : Option Store)
+  let m2 ← IO.mkRef (none : Option M2)
   let rec loop : IO Unit := do
     let line ← stdin.getLine
     if line.isEmpty then return
@@ -158,7 +269,20 @@ partial def driverMain : IO UInt32 := do
         let id := (req.get? "id").getD .null
         let op := (req.getStr? "op").getD ""
         let args := (req.get? "args").getD .null
-        match ← handle cur op args with
+        let res ← if op.startsWith "m2." then handleM2 m2 op args
+          else if op == "bench" then benchOp cur m2 args
+          else if op == "rawDump" && (← m2.get).isSome then do
+            match ← m2.get with
+            | some m => match ← (do rawDump (← m.db.store.conn)).run with
+              | .ok j => pure (.ok j)
+              | .error e => pure (.error (storeErrJ e))
+            | none => pure (.error (errJ "InvalidArgument" "no database is open"))
+          else do
+            if op == "open" || op == "close" then
+              if let some m ← m2.get then m.db.close
+              m2.set none
+            handle cur op args
+        match res with
         | .ok r => pure (Json.obj #[("id", id), ("ok", r)])
         | .error e => pure (Json.obj #[("id", id), ("err", e)])
     stdout.putStrLn resp.compress
@@ -166,6 +290,7 @@ partial def driverMain : IO UInt32 := do
     loop
   loop
   if let some st ← cur.get then st.close
+  if let some m ← m2.get then m.db.close
   return 0
 
 end Tiramemsu.Shell

@@ -70,6 +70,24 @@ M1 proves the 21 requirements marked "Machine-checked" in the four M1 specs; eac
 
 Bit-level facts use `bv_decide` (allowlisted, codec only); the dictionary theorems take the codec facts as the hypothesis `CodecLaws` and use only the standard axioms.
 
+## Proven Store State Machine
+
+M2 proves the Tier 1 requirements of the store engine over the model store in `TiramemsuProofs/Store/`. See [[engine]].
+
+The theorems are about the engine code itself, run on `ModelStore` through `erun` (an `EngM` computation) or `RProg.onModel` (a read program); `policy/theorem-index.toml` maps each requirement to them.
+
+- Bodies and invariant: every `Op` preserves the in-transaction invariant `TxInv`, so every body program does (`inv_prog`); a commit of any body and clock reading turns a `WF` state into a `WF` state that `Extends` it (`transact_wf_extends`). `Extends` is a preorder.
+- Statement lifecycle: content immutable and a retraction permanent (`transact_retraction`, `extends_row`), new eids above every issued one (`extends_new_eids`), no self-reference (`wf_no_self_reference`).
+- Transaction log: `t = last_t + 1`, one `tx` row per commit, instants strictly increasing for any clock (`transact_txlog`, `wf_tx_numbers`, `wf_instants_increasing`, `instantsOf_increasing`); dry runs and speculation record nothing (`dryRun_no_tx`, `speculate_no_tx`).
+- Speculation: only id counters change (`speculate_pure`), they are burned (`speculate_burns`), the query sees the speculative state (`speculative_result`); a dry run returns the commit's result (`dryRun_eq_transact`).
+- Cascade: the walk terminates within its fuel, is duplicate-free, root first and equals the reflexive-transitive closure, and fails exactly when the closure exceeds the limit (`walk_spec`); `cascadeSet_spec`, `cascadeSet_eq_dependents`, `dependentsIn_spec` and `retractRoot_spec` lift this to the engine and the dependents read.
+- Verbs: `assert_spec` and `assert_twice` (idempotence, smallest overlapping eid, no row changed); `supersede_spec` (retract `C` with kind `supersede`, replay through `σ`, link).
+- Views: as-of equals the replay of the event log (`asOf_eq_replay`) and the now view of any earlier store (`asOf_extends`); instant resolution (`resolveInstant_spec`, `_mono`, `_instant`); valid-at filters after the transaction-time selection (`triplesIn_validAt`).
+- Volatile state: no view read depends on it (`volatile_not_statements`, `onModel_noVol`); as-of and history values never return it (`values_not_now`).
+- Merge: pointwise join, extensionality, commutativity, associativity, idempotence, never-forget and row well-formedness (`Tiramemsu.Model.merge_*`).
+
+Footprints (`Footprint.lean`, `Effects.lean`) classify the operations a computation may perform from its syntax tree: read-only steps leave the store unchanged, light steps leave every statement row unchanged, and non-inserting steps only retract live rows at the current transaction.
+
 ## Tested Store Properties
 
 Everything else in the store contract is tested on both stores through the same interface code (`tiramemsu-tests contract`), plus SQLite-only cases.

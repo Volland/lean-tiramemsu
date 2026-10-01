@@ -2,18 +2,16 @@
 The term dictionary on a store, and its caches (shell, unverified; refinement-tested against
 the pure `Dict` model):
 
-- `TermBackend`: the coalesced lookup, the by-id read, the insert and the `next_term` counter,
-  implemented for `ModelStore` and for `SqliteStore` with the SQL of Rust's `term.rs`.
-- `intern`, `lookupValue`, `decode`: the dictionary algorithms of `Dict`, over any backend.
+- `TermBackend` (see `Tiramemsu.Term.Backend`) for `SqliteStore`, with the SQL of Rust's
+  `term.rs`; the algorithms `intern`, `lookupValue`, `decode` are generic over it.
 - `WriterCache`: a committed key/id map plus a per-transaction overlay, merged on commit and
   dropped on rollback; capacity unbounded, `n` (cleared past `2n`, as Rust), or 0 (off).
 - `ReaderCache`: an id → row LRU filled only from committed rows (snapshot readers).
 Terms are immutable, so no cache entry is ever invalidated, only evicted.
 -/
 import Std.Data.HashMap
-import Tiramemsu.Term.Dict
+import Tiramemsu.Term.Backend
 import Tiramemsu.Sqlite.Store
-import Tiramemsu.Store.Model
 
 namespace Tiramemsu.Term
 
@@ -28,29 +26,6 @@ instance : Hashable TermKey where
 abbrev CKey := Nat × String × Int64 × String
 
 def TermKey.ckey (k : TermKey) : CKey := (k.tag.toNat, k.lex, k.dt.getD 0, k.lang.getD "")
-
-/-- Dictionary access a store provides. -/
-class TermBackend (m : Type → Type) where
-  lookupKey : TermKey → m (Option Nat)
-  rowById : Nat → m (Option Row)
-  insertRow : Row → m Unit
-  nextTerm : m Nat
-  setNextTerm : Nat → m Unit
-
-/-- A `term` table row as a dictionary row. -/
-def Row.ofStore (r : TermRow) : Option Row := do
-  let t ← Tag.ofNat? r.tag.toNatClampNeg
-  pure ⟨r.id.toNatClampNeg, t, r.lex, r.dt, r.lang, r.num⟩
-
-/-! ## The model store -/
-
-instance : TermBackend ModelM where
-  lookupKey k := ModelM.read fun st =>
-    (st.terms.find? fun r => (Row.ofStore r).any (·.key.equiv k)).map (·.id.toNatClampNeg)
-  rowById i := ModelM.read fun st => (st.termById i.toInt64).bind Row.ofStore
-  insertRow r := WriteStore.insertTerm r.toStore
-  nextTerm := do return ((← ReadStore.counter (m := ModelM) "next_term").getD 1).toNatClampNeg
-  setNextTerm n := WriteStore.setCounter (m := ModelM) "next_term" n.toInt64
 
 /-! ## SQLite, with Rust's `term.rs` statements -/
 
@@ -119,7 +94,7 @@ instance {m : Type → Type} [Monad m] [MonadLiftT IO m] [TermBackend m] : TermB
     if c.enabled then
       if let some i := (← (c.overlay.get : IO _))[k.ckey]? then return some i
       if let some i := (← (c.committed.get : IO _))[k.ckey]? then return some i
-    let r ← TermBackend.lookupKey k
+    let r ← TermReader.lookupKey (m := m) k
     -- not in the overlay, so the row was committed before this transaction
     if c.enabled then if let some i := r then (c.committed.modify (·.insert k.ckey i) : IO _)
     pure r
@@ -127,97 +102,19 @@ instance {m : Type → Type} [Monad m] [MonadLiftT IO m] [TermBackend m] : TermB
     if c.enabled then
       if let some r := (← (c.overlayRev.get : IO _))[i]? then return some r
       if let some r := (← (c.committedRev.get : IO _))[i]? then return some r
-    let r ← TermBackend.rowById i
+    let r ← TermReader.rowById (m := m) i
     if c.enabled then
       if let some row := r then
         (c.committed.modify (·.insert row.key.ckey i) : IO _)
         (c.committedRev.modify (·.insert i row) : IO _)
     pure r
   insertRow r := fun c => do
-    TermBackend.insertRow r
+    TermBackend.insertRow (m := m) r
     if c.enabled then
       (c.overlay.modify (·.insert r.key.ckey r.id) : IO _)
       (c.overlayRev.modify (·.insert r.id r) : IO _)
-  nextTerm := fun _ => TermBackend.nextTerm
-  setNextTerm n := fun _ => TermBackend.setNextTerm n
-
-/-! ## The algorithms, over any backend -/
-
-section
-variable {m : Type → Type} [Monad m] [TermBackend m]
-
-/-- Lookup-or-insert of a key (`IdSpaceExhausted TERM` past `2^60 − 1`). -/
-def internKey (k : TermKey) (num : Option UInt64) : m (Except CodecError Nat) := do
-  match ← TermBackend.lookupKey k with
-  | some i => pure (.ok i)
-  | none =>
-    let next ← TermBackend.nextTerm
-    if next ≤ termIdMax then
-      TermBackend.insertRow ⟨next, k.tag, k.lex, k.dt, k.lang, num⟩
-      TermBackend.setNextTerm (next + 1)
-      pure (.ok next)
-    else pure (.error (.idSpaceExhausted .term))
-
-/-- Encodes a value on the write path, interning its datatype IRI first, then the term. -/
-def intern (v : Value) : m (Except CodecError ObjectId) := do
-  match encode v with
-  | .error e => pure (.error e)
-  | .ok (.inline x) => pure (.ok x)
-  | .ok (.term t) =>
-    let dt : Except CodecError (Option Int64) ← match t.datatype with
-      | none => pure (Except.ok none)
-      | some iri => do
-        match ← internKey (m := m) ⟨.iri, iri, none, none⟩ none with
-        | .ok j => pure (Except.ok (some (termId .iri j).raw))
-        | .error e => pure (Except.error e)
-    match dt with
-    | .error e => pure (.error e)
-    | .ok dt =>
-      match ← internKey ⟨t.tag, t.lex, dt, t.lang⟩ t.num with
-      | .ok i => pure (.ok (termId t.tag i))
-      | .error e => pure (.error e)
-
-/-- Encodes a value for a read: lookups only. -/
-def lookupValue (v : Value) : m (Except CodecError (Option ObjectId)) := do
-  match encode v with
-  | .error e => pure (.error e)
-  | .ok (.inline x) => pure (.ok (some x))
-  | .ok (.term t) =>
-    let dt? ← match t.datatype with
-      | none => pure (some none)
-      | some iri => do
-        pure ((← TermBackend.lookupKey ⟨.iri, iri, none, none⟩).map fun j => some (termId .iri j).raw)
-    match dt? with
-    | none => pure (.ok none)
-    | some dt => pure (.ok ((← TermBackend.lookupKey ⟨t.tag, t.lex, dt, t.lang⟩).map (termId t.tag)))
-
-/-- Decodes an id (dictionary ids from their row). -/
-def decode (x : ObjectId) : m (Except CodecError Value) := do
-  match decodeInline x with
-  | .error e => pure (.error e)
-  | .ok (some v) => pure (.ok v)
-  | .ok none =>
-    match x.tag with
-    | .error e => pure (.error e)
-    | .ok t =>
-      let bad : CodecError := .invalidTerm s!"unknown term id {x.raw.toInt}"
-      match ← TermBackend.rowById x.upayload.toNat with
-      | none => pure (.error bad)
-      | some r =>
-        if r.tag != t then pure (.error bad)
-        else
-          let dt ← match r.dt with
-            | none => pure none
-            | some raw =>
-              let y : ObjectId := ⟨raw⟩
-              if y.tagBits == Tag.iri.toUInt64 then do
-                match ← TermBackend.rowById y.upayload.toNat with
-                | some d => pure (if d.tag == .iri then some d.lex else none)
-                | none => pure none
-              else pure none
-          pure (valueFromTerm r.tag r.lex dt r.lang)
-
-end
+  nextTerm := fun _ => TermBackend.nextTerm (m := m)
+  setNextTerm n := fun _ => TermBackend.setNextTerm (m := m) n
 
 /-! ## The reader cache -/
 
@@ -250,6 +147,11 @@ def ReaderCache.put (c : ReaderCache) (r : Row) : IO Unit := do
       | none => es
     else es
   c.entries.set (es.insert r.id (r, t))
+
+/-- A snapshot reader without a cache. -/
+instance : TermReader ReaderM where
+  lookupKey k := fun conn => lookupOn conn k
+  rowById i := fun conn => byIdOn conn i
 
 /-- A snapshot reader behind the LRU (committed rows only). -/
 instance : TermBackend (ReaderT ReaderCache ReaderM) where

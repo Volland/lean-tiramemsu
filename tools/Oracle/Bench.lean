@@ -138,7 +138,7 @@ def reportMarkdown (n : Nat) (statements : Nat) (bytesPerStmt : Float) (pin : St
   return s
 
 /-- The workloads of the gate categories (`lat.md/roadmap.md#Performance Gate`). -/
-def workloads (n : Nat) (seed : Nat) : Array Workload := Id.run do
+def workloads (n : Nat) (seed : Nat) (nameEids : Array Nat := #[]) : Array Workload := Id.run do
   let mut g := mkStdGen seed
   let mut starts := #[]
   for _ in [0:200] do
@@ -154,7 +154,11 @@ def workloads (n : Nat) (seed : Nat) : Array Workload := Id.run do
   let writes := (List.range 200).toArray.map fun k =>
     ("transact", Json.obj #[("ops", .arr #[.obj #[("op", .str "assert"), ("s", node (starts[k % starts.size]!)),
       ("p", b "name"), ("o", .str s!"bench name {k}")]])])
+  let supersedes := nameEids.mapIdx fun k e =>
+    ("transact", Json.obj #[("ops", .arr #[.obj #[("op", .str "supersede"), ("eid", .int (Int.ofNat e)),
+      ("patch", .obj #[("o", .str s!"superseded name {k}")])]])])
   #[ { category := "writes", name := "assert (one per transaction)", calls := writes },
+     { category := "writes", name := "supersede (one per transaction)", calls := supersedes },
      { category := "lookups", name := "point now", calls := starts.map (triples · now) },
      { category := "lookups", name := "point asOf", calls := starts.map (triples · asOf) },
      { category := "lookups", name := "point validAt", calls := starts.map (triples · validAt) },
@@ -203,8 +207,18 @@ def runBench (n : Nat) (pin : String) (outDir : System.FilePath) : IO UInt32 := 
   let bytes ← fileBytes fixture
   let bps := bytes.toFloat / statements.toFloat
   -- read workloads run on the fixture; the write workload runs last, on copies
+  -- the live `name` statements of the first 200 starts (supersede targets), read through Rust
+  let _ ← rust.call! "open" (.obj #[("path", .str fixture.toString)])
+  let mut nameEids := #[]
+  for (_, args) in (workloads n 7).find? (·.name == "point now") |>.map (·.calls) |>.getD #[] do
+    match ← rust.call "triples" args with
+    | .ok (.arr rows) =>
+      if let some e := rows[0]? >>= (·.getInt? "eid") then
+        if !nameEids.contains e.toNat then nameEids := nameEids.push e.toNat
+    | _ => pure ()
+  let _ ← rust.call "close"
   let mut rows := #[]
-  for w in workloads n 7 do
+  for w in workloads n 7 nameEids do
     let isWrite := w.category == "writes"
     let rpath := if isWrite then dir / "write-rust.db" else fixture
     let lpath := if isWrite then dir / "write-lean.db" else fixture

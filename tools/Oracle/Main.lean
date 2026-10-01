@@ -2,6 +2,7 @@
 `oracle`: the differential harness and the report-only benchmark.
 
   oracle test                          harness unit tests (canonicalization, deviations, bench exit)
+  oracle store [--seeds N] [--ops M]   M2 store differential (random scripts, cross-open)
   oracle scenario <file.json>...       runs comparison scenarios over shared files
   oracle fixture <db> [--seed S] [--txs K]   writes a deterministic Rust fixture file
   oracle bench --n N [--out DIR]       benchmark; report in DIR (default oracle/bench)
@@ -15,6 +16,7 @@ import Oracle.Tests
 import Oracle.Fixture
 import Oracle.Codec
 import Oracle.Interchange
+import Oracle.Store
 
 open Oracle
 
@@ -49,6 +51,7 @@ def runScenarios (files : List String) : IO UInt32 := do
 def main (args : List String) : IO UInt32 := do
   match args with
   | ["test"] => Oracle.Tests.main
+  | "store" :: rest => Oracle.Store.main rest
   | "scenario" :: files => if files.isEmpty then pure 2 else runScenarios files
   | "fixture" :: path :: rest =>
     let rust ← startRust

@@ -56,3 +56,53 @@ spec = "openspec/changes/m1-verified-codec/specs/storage-format/spec.md#Planner 
 match.op = "open"
 match.lean = "ok"
 match.rust = "ok"
+
+# M2 (m2-verified-store).
+
+[[deviation]]
+id = "lean-graphs-dedup"
+summary = "Graphs of a view are a set: Rust lists a graph once per visible declaration when sys:inGraph was never interned (its SQL then has neither UNION nor DISTINCT). Checked by `oracle store`, which accepts it only when deduplicating Rust's list gives Lean's."
+spec = "openspec/changes/m2-verified-store/specs/named-graph-membership/spec.md#Membership reads on a view"
+match.op = "graphs-dedup-checked-in-oracle-store"
+match.lean = "ok"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-io-free-bodies"
+summary = "Transaction bodies and speculative queries are IO-free programs (TxProg/ReadProg), so a re-entrant write cannot be expressed; Rust rejects it at runtime with Reentrant."
+spec = "openspec/changes/m2-verified-store/specs/transaction-log/spec.md#Transaction bodies cannot perform IO"
+match.op = "reentrant-write-not-expressible"
+match.lean = "ok"
+match.rust = "err:Reentrant"
+
+[[deviation]]
+id = "lean-view-snapshot"
+summary = "A Lean view holds one WAL snapshot for its whole scope; Rust takes a snapshot per read."
+spec = "openspec/changes/m2-verified-store/specs/connection-concurrency/spec.md#A view is pinned to a committed snapshot"
+match.op = "view-snapshot-scope"
+match.lean = "ok"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-instant-range"
+summary = "Instants are integers in the core; one outside the signed 64-bit range fails the transaction with a store error; Rust overflows."
+spec = "openspec/changes/m2-verified-store/specs/transaction-log/spec.md#Strictly increasing instants for any clock"
+match.op = "instant-out-of-range"
+match.lean = "err:Sqlite"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-supersede-replay-selfref"
+summary = "A supersede replay whose rewritten subject or object equals its own new eid (only possible when a statement refers to an eid not issued yet) fails with SelfReference; Rust checks only the root's object and inserts it."
+spec = "openspec/changes/m2-verified-store/specs/statement-lifecycle/spec.md#No direct self-reference"
+match.op = "supersede-replay-self-reference"
+match.lean = "err:SelfReference"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-speculation-store-error-burn"
+summary = "When a speculation or dry run fails with a SQLite storage error inside its body, the ids it allocated are not burned (the body's counters are lost with the aborted transaction); Rust burns them from memory. IO-free bodies cannot leak those ids."
+spec = "openspec/changes/m2-verified-store/specs/speculative-transactions/spec.md#Ids allocated in speculation are burned"
+match.op = "speculation-storage-failure"
+match.lean = "err:Sqlite"
+match.rust = "err:Sqlite"

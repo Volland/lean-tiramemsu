@@ -293,6 +293,7 @@ instance : WriteStore ModelM where
   savepoint n := (WriteOp.savepoint n).exec
   rollbackTo n := (WriteOp.rollbackTo n).exec
   release n := (WriteOp.release n).exec
+  baseCounter n := fun s => .ok (s.committed.counter n, s)
 
 instance : ReadStore SnapM where
   scan sp init f := fun st => (st.scanM sp init f) st

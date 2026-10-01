@@ -10,8 +10,12 @@ import Test.Refine
 import Test.Codec
 import Test.Storage
 import Test.Terms
+import Test.Store.Main
+import Test.Store.Refine
+import Test.Store.Concurrency
+import Test.Store.Merge
 
-def usage : String := "usage: tiramemsu-tests <probe [--large] | contract | plan [db] | compat <rust-db> | refine [--seeds N] [--ops M] [--start db] [--self-test] | schema-dump <db> | codec | storage | terms [--seeds N] [--ops M]>"
+def usage : String := "usage: tiramemsu-tests <probe [--large] | contract | plan [db] | compat <rust-db> | refine [--seeds N] [--ops M] [--start db] [--self-test] | schema-dump <db> | codec | storage | terms [--seeds N] [--ops M] | store [prefix] | merge [--seeds N] | store-refine [--seeds N] [--ops M] | concurrency [--seeds N]>"
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -24,4 +28,8 @@ def main (args : List String) : IO UInt32 := do
   | ["codec"] => Test.Codec.main
   | ["storage"] => Test.Storage.main
   | "terms" :: rest => Test.Terms.main rest
+  | "store" :: rest => Test.Store.main rest
+  | "store-refine" :: rest => Test.Store.Refine.main rest
+  | "merge" :: rest => Test.Store.MergeTest.main rest
+  | "concurrency" :: rest => Test.Store.Concurrency.main rest
   | _ => IO.eprintln usage; pure 2

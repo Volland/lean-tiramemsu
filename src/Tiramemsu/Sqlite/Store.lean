@@ -23,6 +23,8 @@ structure TxState where
   inTx : Bool := false
   /-- Open savepoints, newest first. -/
   sps : List String := []
+  /-- The `meta` rows read right after `BEGIN IMMEDIATE` (the committed counters). -/
+  base : Array (String × Int64) := #[]
   deriving Repr, Inhabited
 
 /-- An open SQLite store: the writer connection and a pool of idle reader connections. -/
@@ -207,8 +209,18 @@ def insertTxOn (c : Conn) (r : TxRow) : SqlM Unit :=
 
 def Store.begin : SqliteM Unit := fun st => do
   if (← st.txState.get).inTx then throw (.misuse "begin inside a transaction")
-  (← st.conn).beginImmediate
-  st.txState.set { inTx := true }
+  let c ← st.conn
+  c.beginImmediate
+  let base ← tryCatch (c.queryAll "SELECT CAST(key AS BLOB), value FROM meta" #[] fun s => do
+      pure (((← colText s 0).getD ""), ← colInt! s 1))
+    fun e => do let _ ← (c.rollback.run : IO _); throw e
+  st.txState.set { inTx := true, base }
+
+/-- A counter as it was when the write transaction began; the committed value outside one. -/
+def Store.baseCounter (n : String) : SqliteM (Option Int64) := fun st => do
+  let ts ← st.txState.get
+  if ts.inTx then pure ((ts.base.find? (·.1 == n)).map (·.2))
+  else counterOn (← st.conn) n
 
 def Store.commit : SqliteM Unit := fun st => do
   unless (← st.txState.get).inTx do throw (.misuse "commit without a transaction")
@@ -276,6 +288,7 @@ instance : WriteStore SqliteM where
   savepoint := Store.savepoint
   rollbackTo := Store.rollbackTo
   release := Store.release
+  baseCounter := Store.baseCounter
 
 instance : ReadStore ReaderM where
   scan sp init f := fun c => scanOn c sp init (fun b r => f b r c)

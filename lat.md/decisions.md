@@ -67,3 +67,15 @@ Benchmarks are report-only through M5. Switching the Node.js and Python packages
 ## D15 Origin Bits Reserved
 
 The `STMT`, `NODE`, `BNODE` and `TX` payloads split into a 12-bit origin and a 48-bit counter from M1, and the Rust `reserve-replica-id` change lands too. The 2P-set merge laws are proven on the model.
+
+## D16 Listed M2 Deviations
+
+Where the Lean engine differs from the pinned Rust on purpose; each is registered in `oracle/deviations.toml` and accepted by the store oracle only in its stated form.
+
+- IO-free bodies: bodies and speculative queries are `TxProg`/`ReadProg` values, so a re-entrant write cannot be expressed; Rust rejects it at runtime with `Reentrant`.
+- Per-view snapshots: a view holds one WAL snapshot for its whole scope; Rust takes a snapshot per read.
+- `Int64` boundary checks: instants are integers in the core; one outside the signed 64-bit range fails the transaction with a store error, where Rust overflows.
+- Supersede replay: a replay whose rewritten subject or object equals its own new eid fails with `SelfReference`; Rust checks only the root's object.
+- Graph listing: the graphs of a view are a set; Rust lists a graph once per visible declaration when `sys:inGraph` was never interned.
+- Storage errors in speculation: when a speculation or dry run body fails with a SQLite storage error, its allocated ids are lost with the aborted transaction instead of burned; Rust burns them from memory.
+

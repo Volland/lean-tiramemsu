@@ -235,3 +235,215 @@ theorems = [
   "Tiramemsu.Codec.decode_internValue",
   "Tiramemsu.Codec.codecLaws",
 ]
+
+[[requirement]]
+spec = "transaction-log"
+name = "Gap-free transaction numbers"
+theorems = [
+  "Tiramemsu.Engine.transact_txlog",
+  "Tiramemsu.Engine.wf_tx_numbers",
+  "Tiramemsu.Engine.dryRun_no_tx",
+  "Tiramemsu.Engine.speculate_no_tx",
+]
+
+[[requirement]]
+spec = "transaction-log"
+name = "Strictly increasing instants for any clock"
+theorems = [
+  "Tiramemsu.Engine.lt_nextInstant",
+  "Tiramemsu.Engine.instantsOf_increasing",
+  "Tiramemsu.Engine.transact_txlog",
+  "Tiramemsu.Engine.wf_instants_increasing",
+]
+
+[[requirement]]
+spec = "transaction-log"
+name = "Every committed transaction is recorded"
+theorems = [
+  "Tiramemsu.Engine.transact_txlog",
+  "Tiramemsu.Engine.transact_wf_extends",
+]
+
+[[requirement]]
+spec = "statement-lifecycle"
+name = "Statement content is immutable"
+theorems = [
+  "Tiramemsu.Engine.transact_retraction",
+  "Tiramemsu.Engine.extends_row",
+  "Tiramemsu.Engine.transact_wf_extends",
+]
+
+[[requirement]]
+spec = "statement-lifecycle"
+name = "Live to retracted exactly once"
+theorems = [
+  "Tiramemsu.Engine.transact_retraction",
+  "Tiramemsu.Engine.extends_row",
+]
+
+[[requirement]]
+spec = "statement-lifecycle"
+name = "Nothing is ever deleted"
+theorems = [
+  "Tiramemsu.Engine.transact_wf_extends",
+  "Tiramemsu.Engine.extends_row",
+  "Tiramemsu.Engine.Extends.trans",
+]
+
+[[requirement]]
+spec = "statement-lifecycle"
+name = "Eids are never reused"
+theorems = [
+  "Tiramemsu.Engine.extends_new_eids",
+  "Tiramemsu.Engine.wf_eid_below",
+  "Tiramemsu.Engine.transact_wf_extends",
+]
+
+[[requirement]]
+spec = "statement-lifecycle"
+name = "No direct self-reference"
+theorems = [
+  "Tiramemsu.Engine.wf_no_self_reference",
+  "Tiramemsu.Engine.transact_wf_extends",
+]
+
+[[requirement]]
+spec = "speculative-transactions"
+name = "Speculation is observationally pure"
+theorems = [
+  "Tiramemsu.Engine.speculate_pure",
+  "Tiramemsu.Engine.speculate_no_tx",
+  "Tiramemsu.Engine.speculative_result",
+]
+
+[[requirement]]
+spec = "speculative-transactions"
+name = "Ids allocated in speculation are burned"
+theorems = [
+  "Tiramemsu.Engine.speculate_burns",
+]
+
+[[requirement]]
+spec = "speculative-transactions"
+name = "Dry run returns the would-be report"
+theorems = [
+  "Tiramemsu.Engine.dryRun_eq_transact",
+  "Tiramemsu.Engine.dryRun_no_tx",
+]
+
+[[requirement]]
+spec = "temporal-views"
+name = "As-of equals replay of the log"
+theorems = [
+  "Tiramemsu.Engine.asOf_eq_replay",
+  "Tiramemsu.Engine.replay_spec",
+  "Tiramemsu.Engine.asOf_extends",
+]
+
+[[requirement]]
+spec = "temporal-views"
+name = "As-of by instant"
+theorems = [
+  "Tiramemsu.Engine.resolveInstant_spec",
+  "Tiramemsu.Engine.resolveInstant_mono",
+  "Tiramemsu.Engine.resolveInstant_instant",
+  "Tiramemsu.Engine.triples_asOf_instant",
+  "Tiramemsu.Engine.triplesIn_validAt",
+]
+
+[[requirement]]
+spec = "temporal-views"
+name = "Valid-at is half-open"
+theorems = [
+  "Tiramemsu.Engine.Valid.validAt_iff",
+  "Tiramemsu.Engine.Valid.overlaps_iff",
+  "Tiramemsu.Engine.triplesIn_validAt",
+]
+
+[[requirement]]
+spec = "volatile-state"
+name = "Volatile values are not statements"
+theorems = [
+  "Tiramemsu.Engine.volatile_not_statements",
+  "Tiramemsu.Engine.onModel_noVol",
+]
+
+[[requirement]]
+spec = "volatile-state"
+name = "Volatile values resolve only under now"
+theorems = [
+  "Tiramemsu.Engine.values_not_now",
+  "Tiramemsu.Engine.values_not_now_volatile",
+]
+
+[[requirement]]
+spec = "retraction-cascade"
+name = "Cascade equals the dependents closure"
+theorems = [
+  "Tiramemsu.Engine.retractRoot_spec",
+  "Tiramemsu.Engine.cascadeSet_spec",
+]
+
+[[requirement]]
+spec = "retraction-cascade"
+name = "Cascade order, kinds and cycles"
+theorems = [
+  "Tiramemsu.Engine.walk_spec",
+  "Tiramemsu.Engine.cascadeSet_spec",
+  "Tiramemsu.Engine.retractRoot_spec",
+]
+
+[[requirement]]
+spec = "retraction-cascade"
+name = "Cascade size limit"
+theorems = [
+  "Tiramemsu.Engine.walk_spec",
+  "Tiramemsu.Engine.cascadeSet_spec",
+]
+
+[[requirement]]
+spec = "retraction-cascade"
+name = "Dependents on any view"
+theorems = [
+  "Tiramemsu.Engine.dependentsIn_spec",
+  "Tiramemsu.Engine.cascadeSet_eq_dependents",
+]
+
+[[requirement]]
+spec = "memory-verbs"
+name = "Assert is idempotent"
+theorems = [
+  "Tiramemsu.Engine.assert_spec",
+  "Tiramemsu.Engine.assert_twice",
+  "Tiramemsu.Engine.findOverlapping_spec",
+]
+
+[[requirement]]
+spec = "memory-verbs"
+name = "Supersede replays the layers"
+theorems = [
+  "Tiramemsu.Engine.supersede_spec",
+  "Tiramemsu.Engine.supCore_spec",
+]
+
+[[requirement]]
+spec = "merge-laws"
+name = "Merge laws"
+theorems = [
+  "Tiramemsu.Model.lookup_merge",
+  "Tiramemsu.Model.stmtSet_ext",
+  "Tiramemsu.Model.merge_comm",
+  "Tiramemsu.Model.merge_assoc",
+  "Tiramemsu.Model.merge_self",
+  "Tiramemsu.Model.merge_sorted",
+]
+
+[[requirement]]
+spec = "merge-laws"
+name = "Merge preserves never forget"
+theorems = [
+  "Tiramemsu.Model.merge_never_forget",
+  "Tiramemsu.Model.merge_rowWF",
+  "Tiramemsu.Model.merge_keeps_eids",
+]
+

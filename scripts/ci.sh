@@ -61,6 +61,17 @@ else
   .lake/build/bin/tiramemsu-tests refine --seeds 200 --ops 300
 fi
 
+step "store engine: scenarios, merge laws, refinement, concurrency"
+.lake/build/bin/tiramemsu-tests store
+.lake/build/bin/tiramemsu-tests merge
+.lake/build/bin/tiramemsu-tests concurrency
+if [ "$mode" = nightly ]; then
+  .lake/build/bin/tiramemsu-tests merge --seeds 20000
+  .lake/build/bin/tiramemsu-tests store-refine --seeds 1000 --ops 500
+else
+  .lake/build/bin/tiramemsu-tests store-refine --seeds 50 --ops 200
+fi
+
 step "oracle: pin, read-only build, schema fixture"
 scripts/oracle-pin-check.sh
 if scripts/oracle-pin-check.sh "$(git -C "$RUST_REPO" rev-parse "$(pin_field commit)^")" >/dev/null 2>&1; then
@@ -83,6 +94,13 @@ else
     --dates 20000 --decode 100000 --numbers 20000
 fi
 .lake/build/bin/oracle interchange --seed 1 --values 300
+
+step "oracle: store engine (differential) and cross-open"
+if [ "$mode" = nightly ]; then
+  .lake/build/bin/oracle store --seeds 1000 --ops 300
+else
+  .lake/build/bin/oracle store --seeds 50 --ops 200
+fi
 
 step "Rust-written fixtures: compatibility, plans, refinement"
 mkdir -p .oracle/fixtures
