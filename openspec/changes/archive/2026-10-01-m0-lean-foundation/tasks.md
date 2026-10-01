@@ -11,7 +11,7 @@
 - [x] 2.2 Implement `tiramemsu version` printing program version, linked SQLite version (via leansqlite) and supported format version 1
 - [x] 2.3 Add the toolchain-pin consistency check (project toolchain = pinned Mathlib's toolchain; every manifest entry has an exact rev) to `scripts/ci.sh`
 - [x] 2.4 Add the native-binary checks: dynamic dependencies listed by `otool -L`/`ldd` contain no Lean shared library; executable's version command runs with no toolchain on `PATH`
-- [ ] 2.5 Add `.gitignore` for `.lake/`, `.oracle/`, generated C; verify a fresh clone builds with the default target on both platforms
+- [x] 2.5 Add `.gitignore` for `.lake/`, `.oracle/`, generated C; verify a fresh clone builds with the default target on both platforms
 
 ## 3. leansqlite gap check
 
@@ -84,5 +84,5 @@
 
 - [x] 10.1 Update `lat.md/`: architecture (Store Abstraction with families, interface and module paths), verification (policy checker rules, theorem index, allowlist files, oracle pin and deviation registry), roadmap (M0 status); add `@lat:` code refs from the store, policy checker and refinement runner
 - [x] 10.2 Run `lat check` until all links and code refs pass
-- [ ] 10.3 Run `policy-check --change m0-lean-foundation --strict` and `scripts/ci.sh` end to end on both platforms
+- [x] 10.3 Run `policy-check --change m0-lean-foundation --strict` and `scripts/ci.sh` end to end on both platforms
 - [x] 10.4 Run `openspec validate m0-lean-foundation --strict` until it passes
