@@ -14,6 +14,8 @@ path = "src/main.rs"
 [dependencies]
 tiramemsu-json = { path = "../../.oracle/rust/bindings/json" }
 tiramemsu = { path = "../../.oracle/rust/crates/tiramemsu" }
+tm-core = { path = "../../.oracle/rust/crates/tm-core" }
+tm-rusqlite = { path = "../../.oracle/rust/crates/tm-rusqlite" }
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde_json = "1"
 

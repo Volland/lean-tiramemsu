@@ -39,3 +39,199 @@ theorems = [
   "Tiramemsu.Store.rollbackTo_restores",
   "Tiramemsu.Store.release_keeps",
 ]
+
+[[requirement]]
+spec = "object-encoding"
+name = "ObjectId layout and tags"
+theorems = [
+  "Tiramemsu.Codec.layout",
+  "Tiramemsu.Codec.layout_signed",
+  "Tiramemsu.Codec.ofPayload_bits",
+  "Tiramemsu.Codec.tag_of_tagBits",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Reserved SEALED tag is rejected"
+theorems = [
+  "Tiramemsu.Codec.sealed_rejected",
+  "Tiramemsu.Codec.ofPayload_not_sealed",
+  "Tiramemsu.Codec.ofSigned_not_sealed",
+  "Tiramemsu.Codec.decode_sealed",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Origin and counter of allocated ids"
+theorems = [
+  "Tiramemsu.Codec.origin_split",
+  "Tiramemsu.Codec.mkAlloc_zero",
+  "Tiramemsu.Codec.checkOrigin_rejects",
+  "Tiramemsu.Codec.decode_origin",
+  "Tiramemsu.Codec.encode_origin",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Allocation counters are bounded"
+theorems = [
+  "Tiramemsu.Codec.alloc_ok_iff",
+  "Tiramemsu.Codec.alloc_spec",
+  "Tiramemsu.Codec.alloc_error",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Inline encode and decode round trip"
+theorems = [
+  "Tiramemsu.Codec.decode_encode",
+  "Tiramemsu.Codec.encode_decode",
+  "Tiramemsu.Codec.canonical_wf",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "One ObjectId per value"
+theorems = [
+  "Tiramemsu.Codec.encode_eq_iff",
+  "Tiramemsu.Codec.decode_injective",
+  "Tiramemsu.Codec.inline_never_term",
+  "Tiramemsu.Codec.encode_term_tag",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Signed order within a tag"
+theorems = [
+  "Tiramemsu.Codec.int_lt_iff",
+  "Tiramemsu.Codec.datetime_lt_iff",
+  "Tiramemsu.Codec.counter_lt_iff",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Date-time packing and instant extraction"
+theorems = [
+  "Tiramemsu.Codec.unpackDT_packDT",
+  "Tiramemsu.Codec.packDT_unpackDT",
+  "Tiramemsu.Codec.instant_encDT",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Short-string packing"
+theorems = [
+  "Tiramemsu.Codec.unpackShort_packShort",
+  "Tiramemsu.Codec.packShort_unpackShort",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Range-scan bounds"
+theorems = [
+  "Tiramemsu.Codec.range_iff",
+  "Tiramemsu.Codec.instant_range_iff",
+]
+
+[[requirement]]
+spec = "object-encoding"
+name = "Skolem IRIs"
+theorems = [
+  "Tiramemsu.Codec.parseSkolem_renderSkolem",
+  "Tiramemsu.Codec.renderSkolem_parseSkolem",
+  "Tiramemsu.Codec.parseSkolem_origin",
+]
+
+[[requirement]]
+spec = "literal-canonicalization"
+name = "Integers"
+theorems = [
+  "Tiramemsu.Codec.canonInteger_idem",
+  "Tiramemsu.Codec.canonInteger_eq_iff",
+  "Tiramemsu.Codec.parseIntLex_intText",
+]
+
+[[requirement]]
+spec = "literal-canonicalization"
+name = "Timezone codes"
+theorems = [
+  "Tiramemsu.Codec.tzOfCode_tzCode",
+  "Tiramemsu.Codec.tzCode_tzOfCode",
+  "Tiramemsu.Codec.tzOfCode_reject",
+  "Tiramemsu.Codec.tzCode_inj",
+]
+
+[[requirement]]
+spec = "literal-canonicalization"
+name = "Civil calendar conversion"
+theorems = [
+  "Tiramemsu.Codec.daysFromCivil_civilFromDays",
+  "Tiramemsu.Codec.civilFromDays_daysFromCivil",
+  "Tiramemsu.Codec.validYMD_civilFromDays",
+]
+
+[[requirement]]
+spec = "literal-canonicalization"
+name = "Decimals"
+theorems = [
+  "Tiramemsu.Codec.canonDecimal_idem",
+  "Tiramemsu.Codec.canonDecimal_eq_iff",
+]
+
+[[requirement]]
+spec = "literal-canonicalization"
+name = "Doubles are parsed with correct rounding"
+theorems = [
+  "Tiramemsu.Codec.parseDouble_correct",
+  "Tiramemsu.Codec.roundDec_eq",
+  "Tiramemsu.Codec.roundRatio_eq",
+  "Tiramemsu.Codec.round_overflow",
+  "Tiramemsu.Codec.round_underflow",
+]
+
+[[requirement]]
+spec = "literal-canonicalization"
+name = "Doubles print in shortest round-trip form"
+theorems = [
+  "Tiramemsu.Codec.parseDouble_printDouble",
+  "Tiramemsu.Codec.shortestDec_shortest",
+  "Tiramemsu.Codec.round_eq_iff",
+  "Tiramemsu.Codec.seventeen_digits",
+]
+
+[[requirement]]
+spec = "term-dictionary"
+name = "One row per term key"
+theorems = [
+  "Tiramemsu.Term.Dict.ids_unique",
+  "Tiramemsu.Term.Dict.key_unique",
+  "Tiramemsu.Term.Dict.reachable_unique",
+  "Tiramemsu.Term.Dict.reachable_wf",
+]
+
+[[requirement]]
+spec = "term-dictionary"
+name = "Interning on the write path"
+theorems = [
+  "Tiramemsu.Term.Dict.lookup_intern",
+  "Tiramemsu.Term.Dict.intern_idem",
+  "Tiramemsu.Term.Dict.fresh_id",
+]
+
+[[requirement]]
+spec = "term-dictionary"
+name = "Ids are never reused and terms never change"
+theorems = [
+  "Tiramemsu.Term.Dict.intern_append_only",
+  "Tiramemsu.Term.Dict.intern_full",
+  "Tiramemsu.Term.Dict.intern_wf",
+]
+
+[[requirement]]
+spec = "term-dictionary"
+name = "Decoding dictionary ids"
+theorems = [
+  "Tiramemsu.Term.Dict.decode_internValue",
+  "Tiramemsu.Codec.decode_internValue",
+  "Tiramemsu.Codec.codecLaws",
+]

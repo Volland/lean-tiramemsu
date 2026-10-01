@@ -7,6 +7,12 @@ namespace Test
 
 open Tiramemsu.Sqlite Tiramemsu.Store
 
+instance {ε α : Type} [BEq ε] [BEq α] : BEq (Except ε α) where
+  beq
+    | .ok a, .ok b => a == b
+    | .error a, .error b => a == b
+    | _, _ => false
+
 /-- Accumulated test results. -/
 structure Report where
   passed : Nat := 0

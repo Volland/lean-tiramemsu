@@ -5,9 +5,16 @@
   oracle scenario <file.json>...       runs comparison scenarios over shared files
   oracle fixture <db> [--seed S] [--txs K]   writes a deterministic Rust fixture file
   oracle bench --n N [--out DIR]       benchmark; report in DIR (default oracle/bench)
+  oracle interchange [--seed S] [--values N]   file interchange with the Rust build
+  oracle codec bench [--n N] [--out FILE]   report-only parse/print throughput against Rust
+  oracle codec smoke                   codec mode on the Rust unit-test values
+  oracle codec fuzz [--seed S] [--doubles N] [--parse N] [--values N] [--dates N]
+                    [--decode N] [--numbers N]   differential codec fuzzing
 -/
 import Oracle.Tests
 import Oracle.Fixture
+import Oracle.Codec
+import Oracle.Interchange
 
 open Oracle
 
@@ -49,11 +56,39 @@ def main (args : List String) : IO UInt32 := do
     rust.stop
     IO.println s!"fixture {path}: {n} committed transaction(s)"
     pure 0
+  | ["codec", "smoke"] =>
+    let rust ← startRust
+    let r ← Oracle.Codec.smoke rust
+    rust.stop
+    pure r
+  | "codec" :: "fuzz" :: rest =>
+    let rust ← startRust
+    let r ← Oracle.Codec.fuzz rust (flag rest "--seed" 1) (flag rest "--doubles" 100000)
+      (flag rest "--parse" 20000) (flag rest "--values" 20000) (flag rest "--dates" 20000)
+      (flag rest "--decode" 100000) (flag rest "--numbers" 20000)
+    rust.stop
+    pure r
+  | "codec" :: "bench" :: rest =>
+    let rust ← startRust
+    let n := flag rest "--n" 100000
+    let out := match rest.dropWhile (· != "--out") with
+      | _ :: d :: _ => d
+      | _ => s!"oracle/bench/codec-{n}.md"
+    let r ← Oracle.Codec.bench rust n (flag rest "--seed" 1) out
+    rust.stop
+    pure r
+  | "interchange" :: rest =>
+    let rust ← startRust
+    let lean ← startLean
+    let r ← Oracle.Interchange.run rust lean (flag rest "--seed" 1) (flag rest "--values" 300)
+    rust.stop
+    lean.stop
+    pure r
   | "bench" :: rest =>
     let out := match rest.dropWhile (· != "--out") with
       | _ :: d :: _ => d
       | _ => "oracle/bench"
     runBench (flag rest "--n" 100000) (← pinCommit) out
   | _ =>
-    IO.eprintln "usage: oracle test | scenario <file>... | fixture <db> [--seed S] [--txs K] | bench --n N [--out DIR]"
+    IO.eprintln "usage: oracle test | scenario <file>... | fixture <db> [--seed S] [--txs K] | bench --n N [--out DIR] | codec smoke | codec fuzz [--seed S] [--doubles N] [--parse N] [--values N] [--dates N] [--decode N] [--numbers N]"
     pure 2

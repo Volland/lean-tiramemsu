@@ -64,6 +64,22 @@ def checkRepo (change : Option String) (strictChange : Bool) : IO UInt32 := do
   IO.println s!"policy-check: {vs.size} violation(s); {proven.size} proven requirement(s), {index.size} index entr(y/ies), {pending.size} pending"
   return if vs.isEmpty then 0 else 1
 
+/-- Theorems of the proof library that depend on a `bv_decide` certificate axiom, one per line
+(the content `policy/bv-decide-allowlist.txt` must cover). -/
+def listBv : IO UInt32 := do
+  let cfg ← repoConfig
+  let env ← importEnv #[`Tiramemsu, `TiramemsuProofs, `Main]
+  let mut out := #[]
+  for (i, m) in libModules env cfg do
+    unless cfg.proofRoots.contains m.getRoot do continue
+    let some md := env.header.moduleData[i]? | continue
+    for c in md.constNames do
+      let some ci := env.find? c | continue
+      unless ci matches .thmInfo _ do continue
+      if (axiomsOf env c).any (isBvDecideAxiom env) then out := out.push c.toString
+  for n in out.qsort (· < ·) do IO.println n
+  return 0
+
 /-! ## Self-test -/
 
 structure Case where
@@ -129,6 +145,11 @@ def cases : Array Case := #[
     extra := sourcesOf `Fixture.NativeDecide, expect := #["no-native-decide"] },
   { name := "bv_decide outside the codec", modules := #[`Fixture.BvDecide],
     extra := sourcesOf `Fixture.BvDecide, expect := #["bv-decide-scope"] },
+  { name := "bv_decide in an allowlisted codec theorem accepted", modules := #[`Fixture.Codec.BvOk],
+    cfg := fun c => { c with bvAllowlist := #[`Fixture.Codec.BvOk.and_or_add] },
+    extra := sourcesOf `Fixture.Codec.BvOk, expect := #[] },
+  { name := "bv_decide in a codec theorem missing from the allowlist", modules := #[`Fixture.Codec.BvOk],
+    extra := sourcesOf `Fixture.Codec.BvOk, expect := #["axiom-set"] },
   { name := "allowlist entry outside the codec", modules := #[`Fixture.Clean],
     cfg := fun c => { c with bvAllowlist := #[`Fixture.Clean.std_axioms] },
     expect := #["bv-allowlist-scope"] },
@@ -179,6 +200,7 @@ def main (args : List String) : IO UInt32 := do
   initSearchPath (← findSysroot)
   match args with
   | ["--self-test"] => selfTest
+  | ["--list-bv"] => listBv
   | [] => checkRepo none false
   | ["--change", c] => checkRepo (some c) false
   | ["--change", c, "--strict"] | ["--strict", "--change", c] => checkRepo (some c) true

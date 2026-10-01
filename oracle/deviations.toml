@@ -21,3 +21,38 @@ match.op = "sqlPrepare"
 match.argsContainAny = ["rarray", "tm_lit", "tm_num", "tm_str", "tm_lang", "tm_dt", "tm_kind", "tm_cast", "tm_regex", "tm_sortkey", "tm_vkey", "tm_vkind"]
 match.lean = "err:Sqlite"
 match.rust = "ok"
+
+# M1 (m1-verified-codec). The codec harness (`oracle codec fuzz`) accepts the two decoding
+# deviations only after checking the id really has the deviating shape (Oracle.Codec.strictDeviation).
+
+[[deviation]]
+id = "lean-strict-shortstr-padding"
+summary = "A SHORT_STR id with non-zero bytes after its length is rejected on decode (InvalidTerm); Rust ignores the padding. Rust never writes such ids."
+spec = "openspec/changes/m1-verified-codec/specs/object-encoding/spec.md#Inline encode and decode round trip"
+match.op = "codecDecode"
+match.lean = "err:InvalidTerm"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-strict-origin-decode"
+summary = "An inline NODE/BNODE/STMT/TX id with a non-zero origin is rejected on decode (Unsupported), as well as on input; Rust decodes it."
+spec = "openspec/changes/m1-verified-codec/specs/object-encoding/spec.md#Origin and counter of allocated ids"
+match.op = "codecDecode"
+match.lean = "err:Unsupported"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-next-term-bound"
+summary = "next_term is bounded at 2^60 - 1 with IdSpaceExhausted { kind: TERM }; Rust leaves it unbounded. Unreachable in practice."
+spec = "openspec/changes/m1-verified-codec/specs/term-dictionary/spec.md#Ids are never reused and terms never change"
+match.op = "termIntern"
+match.lean = "err:IdSpaceExhausted"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-no-planner-statistics"
+summary = "The Lean build writes no sqlite_stat1/sqlite_stat4 (no PRAGMA optimize at open); files open in both builds with or without them."
+spec = "openspec/changes/m1-verified-codec/specs/storage-format/spec.md#Planner statistics are outside the format"
+match.op = "open"
+match.lean = "ok"
+match.rust = "ok"

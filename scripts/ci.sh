@@ -20,18 +20,33 @@ step "build: default targets (runtime, proofs, executable)"
 lake build
 lake build policy-check tiramemsu-tests oracle PolicyFixtures
 
+step "format-1 DDL: generated file matches the pinned Rust ddl_v1.sql"
+python3 scripts/gen-ddl.py --check
+
 step "native binary"
 scripts/check-binary.sh
 
 step "proof policy"
 lake exe policy-check --self-test
 lake exe policy-check
+if ! diff <(grep -v '^#' policy/bv-decide-allowlist.txt | sed '/^$/d') <(lake exe policy-check --list-bv); then
+  die "policy/bv-decide-allowlist.txt differs from the theorems that use bv_decide (lake exe policy-check --list-bv)"
+fi
 
 step "leansqlite gap-check probes"
 if [ "$mode" = nightly ]; then
   .lake/build/bin/tiramemsu-tests probe --large
 else
   .lake/build/bin/tiramemsu-tests probe
+fi
+
+step "codec scenarios, storage format, term dictionary refinement"
+.lake/build/bin/tiramemsu-tests codec
+.lake/build/bin/tiramemsu-tests storage
+if [ "$mode" = nightly ]; then
+  .lake/build/bin/tiramemsu-tests terms --seeds 1000 --ops 1000
+else
+  .lake/build/bin/tiramemsu-tests terms --seeds 100 --ops 300
 fi
 
 step "store contract (model and SQLite) and plan report"
@@ -58,6 +73,17 @@ step "oracle: harness tests and scenarios"
 .lake/build/bin/oracle test
 .lake/build/bin/oracle scenario oracle/scenarios/*.json
 
+step "oracle: codec (differential) and file interchange"
+.lake/build/bin/oracle codec smoke
+if [ "$mode" = nightly ]; then
+  .lake/build/bin/oracle codec fuzz --seed "$(date +%j)" --doubles 10000000 --parse 1000000 \
+    --values 200000 --dates 200000 --decode 1000000 --numbers 200000
+else
+  .lake/build/bin/oracle codec fuzz --seed 1 --doubles 100000 --parse 20000 --values 20000 \
+    --dates 20000 --decode 100000 --numbers 20000
+fi
+.lake/build/bin/oracle interchange --seed 1 --values 300
+
 step "Rust-written fixtures: compatibility, plans, refinement"
 mkdir -p .oracle/fixtures
 if [ "$mode" = nightly ]; then seeds="1 2 3 4 5"; runs=1000; else seeds="1"; runs=100; fi
@@ -71,6 +97,7 @@ done
 
 step "benchmark harness smoke run (report-only)"
 .lake/build/bin/oracle bench --n 1000 --out .oracle/bench-smoke
+.lake/build/bin/oracle codec bench --n 10000 --out .oracle/bench-smoke/codec.md > /dev/null
 
 echo
 echo "ci ($mode): all gates passed"

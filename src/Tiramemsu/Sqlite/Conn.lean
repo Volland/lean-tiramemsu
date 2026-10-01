@@ -90,9 +90,9 @@ private def openRaw (path : System.FilePath) (flags : Int32) (opts : ConnOptions
 
 /-- The writer connection: read-write, created if missing, WAL, `synchronous = NORMAL`, busy
 timeout, and Rust's `recursive_triggers = ON`. -/
-def openWriter (path : System.FilePath) (opts : ConnOptions := {}) : SqlM Conn := do
+def openWriter (path : System.FilePath) (opts : ConnOptions := {}) (wal : Bool := true) : SqlM Conn := do
   let c ← openRaw path (openReadWrite ||| openCreate) opts false
-  c.exec "PRAGMA journal_mode = WAL"
+  if wal then c.exec "PRAGMA journal_mode = WAL"
   c.exec "PRAGMA synchronous = NORMAL"
   c.exec "PRAGMA recursive_triggers = ON"
   pure c
@@ -100,6 +100,7 @@ def openWriter (path : System.FilePath) (opts : ConnOptions := {}) : SqlM Conn :
 /-- A reader connection: read-only on the same file. -/
 def openReader (path : System.FilePath) (opts : ConnOptions := {}) : SqlM Conn := do
   let c ← openRaw path openReadOnly opts true
+  c.exec "PRAGMA synchronous = NORMAL"
   c.exec "PRAGMA recursive_triggers = ON"
   pure c
 

@@ -9,6 +9,9 @@
 //! primary-key order, read with plain SQL), `sqlPrepare` (`sql`, run on a connection of the
 //! Rust build, which registers its SQL table functions) and `bench` (`op`, `args`, `reps`:
 //! repeats a bridge call and reports the elapsed nanoseconds and the last result).
+//! The `codec*`, `termIntern` and `decodeFile` operations call `tm-core` directly (see `codec`).
+
+mod codec;
 
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{json, Value as J};
@@ -73,6 +76,9 @@ fn raw_dump(path: &str) -> Result<J, J> {
 }
 
 fn handle(state: &mut State, op: &str, args: &J) -> Result<J, J> {
+    if let Some(r) = codec::handle(op, args) {
+        return r;
+    }
     let need = |state: &State| -> Result<String, J> {
         state
             .path

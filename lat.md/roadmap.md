@@ -39,4 +39,6 @@ The fixture has the shape of the Rust `bench/engine-comparison` (about 11·N sta
 
 ## Status
 
-M0 (`m0-lean-foundation`) is implemented: the Lake project and pins, the policy checker, the store interface with its proven model, the SQLite store with refinement tests, and the differential oracle with its benchmark harness. M1 is next.
+M0 (`m0-lean-foundation`) is implemented: the Lake project and pins, the policy checker, the store interface with its proven model, the SQLite store with refinement tests, and the differential oracle with its benchmark harness.
+
+M1 (`m1-verified-codec`) is implemented: the proven codec, the term dictionary model and its SQLite refinement, storage format 1 and file interchange with Rust ([[codec]]). The codec benchmark is report-only; double printing is far slower than Rust and will need a faster algorithm under `@[csimp]` before the M6 gate. M2 is next.

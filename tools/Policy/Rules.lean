@@ -68,14 +68,41 @@ def libModules (env : Environment) (cfg : Config) : Array (Nat × Name) := Id.ru
     if cfg.isLib m then out := out.push (i, m)
   return out
 
+/-- The declaration a native-evaluation axiom was created for: `T` for an axiom named
+`T._native.<tactic>.ax…` (Lean's `nativeEqTrue`, the basis of `bv_decide` and
+`native_decide`), with the tactic name. -/
+def nativeAxiomOwner? (a : Name) : Option (Name × String) :=
+  let cs := a.components
+  let rec go : List Name → List Name → Option (Name × String)
+    | pre, n :: t :: rest =>
+      if n == `_native then
+        some (pre.reverse.foldl (fun acc c => acc ++ c) .anonymous, t.toString)
+      else go (n :: pre) (t :: rest)
+    | _, _ => none
+  go [] cs
+
+/-- A `bv_decide` certificate axiom: named `T._native.bv_decide.ax…` and stating
+`e = true` for an `e` built by `Std.Tactic.BVDecide` (the reflection checker the tactic
+evaluates natively). Since Lean 4.2x this replaces `Lean.ofReduceBool` as the trusted step of
+`bv_decide` (D12). -/
+def isBvDecideAxiom (env : Environment) (a : Name) : Bool :=
+  match nativeAxiomOwner? a, env.find? a with
+  | some (_, "bv_decide"), some (.axiomInfo ai) =>
+    ai.type.isAppOfArity ``Eq 3 && ai.type.appArg!.isConstOf ``Bool.true &&
+      ((ai.type.appFn!.appArg!.getAppFn.constName?.map (`Std.Tactic.BVDecide).isPrefixOf).getD false)
+  | _, _ => false
+
 /-- Axioms outside the standard set that a theorem may not use. Missing proofs and user
-axioms are left to their own rules. -/
+axioms are left to their own rules; `bv_decide` certificate axioms are allowed only for
+allowlisted theorems. -/
 def badAxioms (env : Environment) (cfg : Config) (c : Name) : Array Name :=
-  let allowed := if cfg.bvAllowlist.contains c then
+  let listed := cfg.bvAllowlist.contains c
+  let allowed := if listed then
       standardAxioms ++ axiomsOf env ``Lean.ofReduceBool
     else standardAxioms
   (axiomsOf env c).filter fun a =>
-    !allowed.contains a && a != ``sorryAx && !((moduleOf? env a).map cfg.isLib |>.getD false)
+    if isBvDecideAxiom env a then !listed
+    else !allowed.contains a && a != ``sorryAx && !((moduleOf? env a).map cfg.isLib |>.getD false)
 
 /-- `@[csimp]` replacements declared in the checked libraries (read from the imported module
 data, since extension states are not loaded): replaced constant ↦ replacement. -/
@@ -99,7 +126,9 @@ def envRules (env : Environment) (cfg : Config) : Array Violation := Id.run do
     for c in md.constNames do
       let some ci := env.find? c | continue
       if ci matches .axiomInfo _ then
-        out := out.push { rule := "no-user-axiom", subject := c.toString, detail := s!"axiom in {m}" }
+        -- `bv_decide` certificates are checked by `axiom-set` on the theorems that use them
+        unless isBvDecideAxiom env c do
+          out := out.push { rule := "no-user-axiom", subject := c.toString, detail := s!"axiom in {m}" }
       let axs := axiomsOf env c
       if axs.contains ``sorryAx then
         out := out.push { rule := "no-sorry", subject := c.toString, detail := "depends on sorry" }

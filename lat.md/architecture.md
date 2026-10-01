@@ -13,7 +13,7 @@ The port is two Lean libraries over one abstract store, with SQLite behind a nar
                      |
           Store state machine: verbs, cascade, views           (proven, M2)
                      |
-          Codec: ObjectId, literals, terms                     (proven, M1)
+          Codec: ObjectId, literals, terms                     (proven, M1; see codec)
                      |
       Store interface ── ModelStore (pure, proofs)
                      └── SqliteStore (leansqlite, refinement-tested)
@@ -75,6 +75,7 @@ SQLite keeps the Rust file format but evaluates no queries. See [[decisions#D3 S
 - Schema DDL and the never-forget triggers are byte-identical to Rust format 1, so either implementation opens the other's files and plain-SQLite tools are still blocked from deleting.
 - Every read is a prepared range statement on a covering index; joins, filters, optionals, aggregates and paths run in Lean.
 - Not ported: SQL codegen, SQL UDFs, the `rarray` table function and `tm_path` as a SQL table function.
+- Files are created and checked by the format-1 open path of [[codec#Storage Format 1#Meta And Open]]; the DDL is generated from the pinned Rust source ([[codec#Storage Format 1#Schema]]).
 - The Lean build writes no planner statistics (`sqlite_stat*`, `PRAGMA optimize`); it never asks SQLite to plan a join.
 - leansqlite exposes SQLite's REAL normalization (NaN to NULL, −0.0 to +0.0) and builds SQLite with `SQLITE_DISABLE_LFS`, which has no effect on 64-bit platforms; the gap check probes a file over 2 GiB. See [[verification#Trusted Base#leansqlite Gap Check]].
 

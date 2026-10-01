@@ -4,3 +4,6 @@ Tiramemsu.Store.Types
 Tiramemsu.Store.Order
 Tiramemsu.Store.Interface
 Tiramemsu.Store.Model
+Tiramemsu.Codec
+Tiramemsu.Term.Key
+Tiramemsu.Term.Dict

@@ -54,7 +54,7 @@ Output is byte-identical to Rust's `{:e}` form, checked by fuzzing. Hardware `Fl
 
 ## D12 Scoped bv_decide
 
-`bv_decide`, and with it the `Lean.ofReduceBool` axiom, is allowed only in codec proofs, through an explicit CI allowlist. See [[verification#Proof Policy]].
+`bv_decide`, and with it its compiler-checked certificate axioms, is allowed only in codec proofs, through an explicit CI allowlist. See [[verification#Proof Policy]].
 
 ## D13 Hybrid Joins Proven Order-Independent
 

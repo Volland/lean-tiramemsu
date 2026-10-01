@@ -38,7 +38,9 @@ def main (args : List String) : IO UInt32 := do
   copyDb src copy
   let res ← (do
     let before ← snapshot copy
-    let st ← Store.open copy
+    let st ← match ← (Tiramemsu.Storage.openFile copy : IO _) with
+      | .ok st => pure st
+      | .error e => throw (.misuse s!"format-1 open failed: {e}")
     let _ ← (ReadStore.counter "format_version" : SqliteM _) st   -- a read, no write
     st.close
     let after ← snapshot copy

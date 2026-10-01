@@ -2,15 +2,20 @@
 The Lean side of the oracle driver protocol: one JSON request per line on stdin, one JSON
 response per line on stdout. Requests are `{"id": n, "op": name, "args": {...}}`; responses
 are `{"id": n, "ok": result}` or `{"id": n, "err": {"code": c, "message": m}}`.
-M0 implements `open`, `close`, `rawDump` and `sqlPrepare`; every other operation answers
-`Unsupported` until the milestone that owns it. Shell module (unverified).
+M0 implements `open` (the format-1 open path since M1), `close`, `rawDump` and `sqlPrepare`;
+M1 adds `termIntern` (intern values into a file in one transaction) and `decodeFile` (decode
+every term row and triple id). Every other operation answers `Unsupported` until the milestone
+that owns it. Shell module (unverified).
 -/
 import Tiramemsu.Sqlite.Store
 import Tiramemsu.Shell.Json
+import Tiramemsu.Shell.ValueJson
+import Tiramemsu.Storage.Open
+import Tiramemsu.Term.Cache
 
 namespace Tiramemsu.Shell
 
-open Tiramemsu.Json Tiramemsu.Sqlite Tiramemsu.Store
+open Tiramemsu.Json Tiramemsu.Sqlite Tiramemsu.Store Tiramemsu.Storage Tiramemsu.Term Tiramemsu.Codec
 
 --# @lat: [[verification#Differential Oracle#Driver Protocol]]
 
@@ -52,6 +57,53 @@ def storeErrJ (e : StoreError) : Json :=
       ("sqlite", .arr #[.int c.toNat, .int x.toNat])]
   | e => errJ "Store" (toString e)
 
+def openErrJ (e : OpenError) : Json := errJ e.code (toString e)
+
+/-- Interns values into a file in one transaction (as the writer does); returns raw ids. -/
+def termIntern (path : String) (values : Array Json) : IO (Except Json Json) := do
+  match ← openFile path with
+  | .error e => pure (.error (openErrJ e))
+  | .ok st =>
+    let cache ← WriterCache.new none
+    let r ← (do
+      Store.begin st
+      let mut out := #[]
+      for v in values do
+        match valueOfJ? v with
+        | none => out := out.push (errJ "InvalidArgument" "bad value")
+        | some v =>
+          match ← (intern v : CachedM SqliteM _) cache st with
+          | .ok x => out := out.push (.int x.raw.toInt)
+          | .error e => out := out.push (codecErrJ e)
+      Store.commit st
+      pure (Json.arr out) : SqlM Json).run
+    st.close
+    pure (match r with | .ok j => .ok j | .error e => .error (storeErrJ e))
+
+/-- Decodes every term row and every triple id of a file. -/
+def decodeFile (path : String) : IO (Except Json Json) := do
+  match ← openFile path with
+  | .error e => pure (.error (openErrJ e))
+  | .ok st =>
+    let cache ← WriterCache.new (some 0)
+    let r ← (do
+      let c ← st.conn
+      let terms ← dumpTerms c
+      let triples ← dumpTriples c
+      let dec (raw : Int64) : SqlM Json := do
+        match ← (decode ⟨raw⟩ : CachedM SqliteM _) cache st with
+        | .ok v => pure (valueJ v)
+        | .error e => pure (codecErrJ e)
+      let mut ts := #[]
+      for t in terms do
+        ts := ts.push (.arr #[.int t.id.toInt, .int t.tag.toInt, ← dec ((t.id <<< 4) ||| t.tag)])
+      let mut tr := #[]
+      for t in triples do
+        tr := tr.push (.arr #[.int t.eid.toInt, ← dec t.eid, ← dec t.s, ← dec t.p, ← dec t.o])
+      pure (Json.obj #[("terms", .arr ts), ("triples", .arr tr)]) : SqlM Json).run
+    st.close
+    pure (match r with | .ok j => .ok j | .error e => .error (storeErrJ e))
+
 /-- Handles one request; the store is the currently open database, if any. -/
 def handle (cur : IO.Ref (Option Store)) (op : String) (args : Json) : IO (Except Json Json) := do
   let run {α : Type} (x : SqlM α) : IO (Except Json α) := do
@@ -64,9 +116,9 @@ def handle (cur : IO.Ref (Option Store)) (op : String) (args : Json) : IO (Excep
     | none => pure (.error (errJ "InvalidArgument" "`path` is required"))
     | some path =>
       if let some st ← cur.get then st.close
-      match ← run (Store.open path) with
+      match ← openFile path with
       | .ok st => cur.set (some st); pure (.ok .null)
-      | .error e => pure (.error e)
+      | .error e => pure (.error (openErrJ e))
   | "close" =>
     if let some st ← cur.get then st.close
     cur.set none
@@ -80,6 +132,14 @@ def handle (cur : IO.Ref (Option Store)) (op : String) (args : Json) : IO (Excep
         match args.getStr? "sql" with
         | none => pure (.error (errJ "InvalidArgument" "`sql` is required"))
         | some sql => run (do let c ← st.conn; let _ ← lift (c.db.prepare sql); pure (.bool true))
+  | "termIntern" =>
+    match args.getStr? "path", args.getArr? "values" with
+    | some p, some vs => termIntern p vs
+    | _, _ => pure (.error (errJ "InvalidArgument" "`path` and `values` are required"))
+  | "decodeFile" =>
+    match args.getStr? "path" with
+    | some p => decodeFile p
+    | none => pure (.error (errJ "InvalidArgument" "`path` is required"))
   | other => pure (.error (errJ "Unsupported" s!"operation {other} is not implemented by this build yet"))
 
 /-- The driver loop. -/

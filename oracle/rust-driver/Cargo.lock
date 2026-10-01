@@ -643,6 +643,8 @@ dependencies = [
  "serde_json",
  "tiramemsu",
  "tiramemsu-json",
+ "tm-core",
+ "tm-rusqlite",
 ]
 
 [[package]]
