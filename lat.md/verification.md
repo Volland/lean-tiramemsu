@@ -25,6 +25,46 @@ Rules enforced by CI so that a proof always covers the code that runs. See [[dec
 - A theorem index maps every spec requirement marked as proven to its theorem name; CI fails if a named theorem is missing. A requirement counts as proven when it has a scenario whose name starts with "Machine-checked".
 - The Lean toolchain is pinned to a version Mathlib supports and bumped deliberately.
 
+### Policy Checker
+
+`policy-check` (`tools/Policy/`) imports the built environments of both libraries and `Main` and checks every rule; only `native_decide`/`bv_decide` tokens and stray C files use text scans.
+
+| Rule | Checks |
+|---|---|
+| `no-sorry` | no declaration depends on `sorryAx` |
+| `no-user-axiom` | no axiom declared in the libraries |
+| `axiom-set` | theorems use only `propext`, `Classical.choice`, `Quot.sound` (plus `Lean.ofReduceBool` and its axioms for allowlisted names) |
+| `verified-total` | no unsafe or opaque (`opaque`, `partial`) constant in a verified module |
+| `override-csimp` | `implemented_by`/`extern` in a verified module only with a `@[csimp]` theorem |
+| `verified-imports` | verified modules import only Init, Std and verified modules |
+| `runtime-imports` | the closure of `Tiramemsu` and `Main` has roots Init, Std, SQLite, Tiramemsu, Main or a listed toolchain module; the chain is reported |
+| `no-native-decide`, `bv-decide-scope`, `bv-allowlist-scope` | source tokens and allowlist entries |
+| `no-stray-c` | no C/C++ file outside `abi/` and build output |
+| `theorem-index` | see below |
+
+The lists are committed files: `policy/verified-modules.txt` (module prefixes), `policy/toolchain-imports.txt` and `policy/bv-decide-allowlist.txt` (both empty in M0). `policy-check --self-test` runs one seeded fixture per rule (`tools/Policy/Fixtures/`) and requires each to be rejected by exactly its rule.
+
+### Theorem Index
+
+`policy/theorem-index.toml` maps each proven requirement (`spec`, `name`) to the theorems that prove it; a requirement is proven when one of its scenarios is named `Machine-checked …`.
+
+Project specs (`openspec/specs`) are checked strictly; active changes are reported as pending, and `policy-check --change <name> --strict` is the pre-archive run that fails on them. Indexed theorems must exist in `TiramemsuProofs` and pass the axiom rule.
+
+## Proven Store Properties
+
+M0 proves the two store-contract requirements over `ModelStore` (`TiramemsuProofs/Store/`); all theorems use only the standard axioms.
+
+- Key order: `keyLt_strictOrder` (every family's order is a strict order), `keyLt_total` (total on rows with distinct statement ids).
+- Scans: `scanList_mem` (exactly the matching rows), `scanList_nodup`, `scanList_sorted` (strictly increasing on well-formed states), `scanList?_valid`, `scan_invalid`, and `scan_fold`/`scan_fold_invalid` (the monadic scan is the ordered fold).
+- Writes: `op_wf` (every operation keeps statement ids unique), `op_error_unchanged` (a failure inside `tryCatch` leaves the store as it was), `insertTriple_spec`, `insertTerm_spec`, `insertTx_spec`, `insert_no_loss`, `insertTriple_reused`, `retract_spec`, `retractRow_spec`, `retract_notFound`, `retract_once`, `write_outside_tx`, `begin_nested`.
+- Transactions: `commit_publishes`, `rollback_spec`, `rollback_restores` (begin, any ops but commit, rollback ends at the committed state), `rollbackTo_restores` (savepoint, data writes, rollback to it), `release_keeps`.
+
+## Tested Store Properties
+
+Everything else in the store contract is tested on both stores through the same interface code (`tiramemsu-tests contract`), plus SQLite-only cases.
+
+The shared scenarios cover signed order, newest-first history, absent-first, seeks, early stop, invalid scans, views, point reads, violations, retraction, volatile upsert, statement-level aborts, savepoints, misuse and snapshot readers. The SQLite-only cases cover closing inside a transaction, read-only readers, trigger aborts, busy errors and rollback after a storage error.
+
 ## Trusted Base
 
 Everything a proof does not cover is listed here, so the verification claim stays exact.
@@ -32,6 +72,12 @@ Everything a proof does not cover is listed here, so the verification claim stay
 - Lean kernel, compiler, runtime; the C compiler; hardware `Float` arithmetic in query expressions.
 - SQLite and leansqlite, through the store contract: a range scan returns exactly the rows matching its key prefix and view predicate, in key order; writes inside a transaction are atomic; WAL readers see a committed prefix; transactions are serializable.
 - The shell: IO, the connection pool, the CLI and the C ABI shim.
+
+### leansqlite Gap Check
+
+Every need of the sqlite-binding spec has a probe in `tiramemsu-tests probe` and a recorded status in `Test/gap-check.md`; no blocking gap was found, so leansqlite is pinned unchanged.
+
+One gap is closed through SQL: leansqlite's text calls stop at an embedded NUL, so text is bound as bytes with `CAST(? AS TEXT)` and read as `CAST(col AS BLOB)`. Extended result codes come from opening with `SQLITE_OPEN_EXRESCODE`. The >2 GiB probe (`--large`, nightly) passes on 64-bit macOS despite `SQLITE_DISABLE_LFS`.
 
 ## Differential Oracle
 
@@ -41,3 +87,33 @@ Tested tiers are checked against the pinned Rust build on shared database files.
 - Harnesses run the same operation sequences and queries on both builds over the same `.db` file and compare canonical results.
 - Refinement tests run random operation sequences on `ModelStore` and `SqliteStore` and compare every observable result.
 - The W3C SPARQL test suite (M4) and the openCypher TCK (M5) are a second oracle, so bugs shared with Rust are still caught.
+
+The pin is `oracle/RUST_PIN` (commit `cb53154a…`, evidence `openspec/changes/archive/2026-10-01-reserve-replica-id`); `scripts/oracle-pin-check.sh` verifies it read-only, and `scripts/oracle-build.sh` builds the oracle from `git archive` into `.oracle/` and fails if the Rust repository's status, refs or worktrees change.
+
+### Driver Protocol
+
+Both builds speak JSON lines: `{"id", "op", "args"}` in, `{"id", "ok"}` or `{"id", "err": {"code", "message"}}` out. The Rust driver is `oracle/rust-driver`; the Lean one is `tiramemsu driver`.
+
+Operations are those of the Rust JSON bridge plus `open`, `close`, `rawDump` (every row of the six format-1 tables in primary-key order, REAL values as bits) and `sqlPrepare`; the Rust driver also has `bench`. The Lean driver answers `Unsupported` for every operation a later milestone owns.
+
+### Canonical Comparison
+
+`tools/Oracle/Canon.lean` compares results in canonical form: sorted object keys, exact integers, multiset arrays at the paths a step lists and ordered arrays elsewhere, doubles by lexical form, errors by code only.
+
+### Deviation Registry
+
+`oracle/deviations.toml` lists every accepted difference with an id, a summary, the spec stating it and a matcher (operation, argument substrings, outcome patterns); a mismatch passes only through a matching entry.
+
+M0's entries: `lean-no-tm-path` (`tm_path` is unavailable through SQL on Lean connections) and `lean-no-sql-functions` (no Rust `tm_*` UDFs, no `rarray`).
+
+### Scenarios
+
+A scenario (`oracle/scenarios/*.json`, run by `oracle scenario`) is a list of steps on one shared file, each run by `rust`, `lean` or `both`; builds hand the file over after `close`, and `compare` steps run on copies.
+
+A mismatch is reported with scenario, step, seed and both canonical results; a Lean `Unsupported` skips a compared step only when the step names the owning milestone. The M0 scenarios check that a Rust-written file dumps identically from both builds, across a handoff, and that the listed deviations are accepted.
+
+### Refinement Tests
+
+`tiramemsu-tests refine` runs seeded operation sequences in lock step on `ModelStore` and `SqliteStore` through the same interface code and compares every result, including scan order and error variant.
+
+Sequences mix valid and invalid writes, transaction and savepoint control, three snapshot readers and every read kind. A divergence is minimized by delta debugging and written to `testdata/refine/`, whose cases replay on every run; `--start` begins from a Rust-written file and `--self-test` checks the machinery with an injected fault. CI runs 200 seeds × 300 ops; nightly runs 5 000 × 1 000 plus Rust fixtures.

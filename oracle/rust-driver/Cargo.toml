@@ -1,0 +1,21 @@
+# The Rust side of the oracle driver protocol (JSON lines on stdin/stdout).
+# Built against the pinned Rust sources, unpacked by `scripts/oracle-build.sh` into
+# `.oracle/rust-<pin>/` and linked as `.oracle/rust`. Nothing is written into the Rust repo.
+[package]
+name = "tm-oracle-driver"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "tm-oracle-driver"
+path = "src/main.rs"
+
+[dependencies]
+tiramemsu-json = { path = "../../.oracle/rust/bindings/json" }
+tiramemsu = { path = "../../.oracle/rust/crates/tiramemsu" }
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde_json = "1"
+
+# A workspace of its own: the driver is not a member of the Rust workspace.
+[workspace]

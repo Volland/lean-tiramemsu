@@ -1,0 +1,9 @@
+[[requirement]]
+spec = "cap"
+name = "Proven thing"
+theorems = ["Fixture.Clean.double_eq"]
+
+[[requirement]]
+spec = "cap"
+name = "Tested thing"
+theorems = ["Fixture.Clean.std_axioms"]

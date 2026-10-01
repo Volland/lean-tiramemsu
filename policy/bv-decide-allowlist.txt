@@ -1,0 +1,2 @@
+# Theorems allowed to depend on Lean.ofReduceBool through bv_decide (D12), one per line.
+# Only theorems declared in TiramemsuProofs.Codec modules may be listed. M1 fills this.

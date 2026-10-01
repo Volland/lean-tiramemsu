@@ -1,0 +1,25 @@
+{
+  "name": "m0-rust-writes-lean-dumps",
+  "steps": [
+    {"build": "rust", "op": "transact", "args": {"ops": [
+      {"op": "assert", "s": {"iri": "http://ex/ann"}, "p": {"iri": "http://ex/knows"}, "o": {"iri": "http://ex/bob"}},
+      {"op": "assert", "s": {"iri": "http://ex/ann"}, "p": {"iri": "http://ex/name"}, "o": "Ann", "as": "name"},
+      {"op": "assert", "s": {"iri": "http://ex/ann"}, "p": {"iri": "http://ex/age"}, "o": 42.5, "validFrom": 1000, "validTo": 2000},
+      {"op": "assert", "s": {"iri": "http://ex/ann"}, "p": {"iri": "http://ex/note"}, "o": "a literal long enough to need a term row"},
+      {"op": "assert", "s": {"iri": "http://ex/ann"}, "p": {"iri": "http://ex/count"}, "o": 9007199254740993},
+      {"op": "assert", "s": {"iri": "http://ex/ann"}, "p": {"iri": "http://ex/label"}, "o": {"lex": "Anna", "lang": "de"}}
+    ]}},
+    {"build": "rust", "op": "transact", "args": {"ops": [
+      {"op": "supersede", "eid": 2, "patch": {"o": "Anne"}},
+      {"op": "meta", "p": {"iri": "http://ex/source"}, "o": "import"}
+    ]}},
+    {"build": "both", "op": "rawDump", "compare": true},
+    {"build": "lean", "op": "rawDump"},
+    {"build": "rust", "op": "transact", "args": {"ops": [
+      {"op": "retract", "eid": 1},
+      {"op": "assert", "s": {"iri": "http://ex/bob"}, "p": {"iri": "http://ex/knows"}, "o": {"iri": "http://ex/ann"}}
+    ]}},
+    {"build": "rust", "op": "rawDump"},
+    {"build": "both", "op": "rawDump", "compare": true}
+  ]
+}

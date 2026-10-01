@@ -30,3 +30,13 @@ Before the Node.js and Python packages switch to the Lean backend, at 10⁶ stat
 - paths: at most 2× Rust;
 - as-of throughput at least 70 % of the no-history baseline;
 - bytes per statement: identical, by construction.
+
+### Benchmark Harness
+
+`oracle bench --n N` builds the fixture through the Rust driver, times each gate category on both builds, checks the results are equal, and writes `oracle/bench/report-N.json` and `.md`.
+
+The fixture has the shape of the Rust `bench/engine-comparison` (about 11·N statements). Timings are taken inside each driver. The exit status reflects harness errors and result mismatches only; Lean columns read "n/a" until the milestone that implements the workload.
+
+## Status
+
+M0 (`m0-lean-foundation`) is implemented: the Lake project and pins, the policy checker, the store interface with its proven model, the SQLite store with refinement tests, and the differential oracle with its benchmark harness. M1 is next.

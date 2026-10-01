@@ -1,0 +1,6 @@
+# Verified modules (prefixes). A verified module imports only Init, Std and other verified
+# modules, and contains no partial, unsafe or opaque declaration. M1+ append theirs.
+Tiramemsu.Store.Types
+Tiramemsu.Store.Order
+Tiramemsu.Store.Interface
+Tiramemsu.Store.Model

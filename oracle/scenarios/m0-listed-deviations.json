@@ -1,0 +1,16 @@
+{
+  "name": "m0-listed-deviations",
+  "steps": [
+    {"build": "rust", "op": "transact", "args": {"ops": [
+      {"op": "assert", "s": {"iri": "http://ex/a"}, "p": {"iri": "http://ex/knows"}, "o": {"iri": "http://ex/b"}}
+    ]}},
+    {"build": "both", "op": "sqlPrepare", "compare": true, "args": {"sql": "SELECT * FROM tm_path(1, 'knows+', 'REACH')"}},
+    {"build": "both", "op": "sqlPrepare", "compare": true, "args": {"sql": "SELECT * FROM rarray(NULL)"}},
+    {"build": "both", "op": "sqlPrepare", "compare": true, "args": {"sql": "SELECT tm_lit_lex(17)"}},
+    {"build": "both", "op": "sqlPrepare", "compare": true, "args": {"sql": "SELECT count(*) FROM triple"}},
+    {"build": "both", "op": "sparql", "compare": true, "owner": "M4", "unordered": ["rows"],
+     "args": {"text": "SELECT ?o WHERE { <http://ex/a> <http://ex/knows> ?o }"}},
+    {"build": "rust", "op": "rawDump"},
+    {"build": "both", "op": "rawDump", "compare": true}
+  ]
+}

@@ -1,0 +1,23 @@
+# Accepted differences between the Lean build and the pinned Rust build (D6). A compared step
+# that differs passes only if an entry's matcher covers it. Matcher fields:
+#   match.op              operation name
+#   match.argsContainAny  substrings, any of which the compact request arguments contain
+#   match.lean/match.rust outcome patterns: ok, err, err:<code>, *
+
+[[deviation]]
+id = "lean-no-tm-path"
+summary = "The Lean build registers no SQL table functions: tm_path is unavailable through SQL; paths stay available through every other surface."
+spec = "openspec/changes/m0-lean-foundation/specs/sqlite-binding/spec.md#No SQL table functions or user functions"
+match.op = "sqlPrepare"
+match.argsContainAny = ["tm_path"]
+match.lean = "err:Sqlite"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-no-sql-functions"
+summary = "The Lean build registers no SQL user functions (the Rust tm_* UDFs) and no rarray table function on its connections."
+spec = "openspec/changes/m0-lean-foundation/specs/sqlite-binding/spec.md#No SQL table functions or user functions"
+match.op = "sqlPrepare"
+match.argsContainAny = ["rarray", "tm_lit", "tm_num", "tm_str", "tm_lang", "tm_dt", "tm_kind", "tm_cast", "tm_regex", "tm_sortkey", "tm_vkey", "tm_vkind"]
+match.lean = "err:Sqlite"
+match.rust = "ok"

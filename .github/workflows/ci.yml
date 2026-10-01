@@ -1,0 +1,43 @@
+# CI for every commit on 64-bit macOS (arm64) and 64-bit Linux (x86_64); the nightly schedule
+# runs the same entry point in nightly mode. Everything is in scripts/ci.sh.
+name: ci
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14       # arm64
+          - os: ubuntu-24.04   # x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan (the toolchain comes from lean-toolchain)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Clone the Rust reference repository (read-only oracle source)
+        run: git clone --quiet https://github.com/Volland/tiramemsu.git "$RUNNER_TEMP/tiramemsu"
+
+      - name: Cache Mathlib oleans
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mathlib
+          key: mathlib-${{ runner.os }}-${{ hashFiles('lake-manifest.json') }}
+
+      - name: scripts/ci.sh
+        env:
+          TIRAMEMSU_RUST_REPO: ${{ runner.temp }}/tiramemsu
+        run: scripts/ci.sh ${{ github.event_name == 'schedule' && 'nightly' || 'ci' }}

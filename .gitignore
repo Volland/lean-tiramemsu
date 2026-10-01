@@ -1,0 +1,9 @@
+# Lake build output (includes the generated C, which is never source)
+/.lake/
+# Oracle work tree: archived Rust sources and their build output
+/.oracle/
+# Generated C outside build output, should a tool ever emit it
+*.c.o
+/build/
+# Scratch databases written by tests
+/testdata/tmp/

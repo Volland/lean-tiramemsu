@@ -1,0 +1,6 @@
+# The Rust build that is the differential oracle (D6). Changing it is a deliberate commit
+# that reruns every oracle comparison. Checked read-only by scripts/oracle-pin-check.sh.
+commit = cb53154a90445bd13d6e41b77a3db94744ea3a83
+# Evidence that the commit contains reserve-replica-id (D15) as landed and archived:
+change = reserve-replica-id
+evidence = openspec/changes/archive/2026-10-01-reserve-replica-id

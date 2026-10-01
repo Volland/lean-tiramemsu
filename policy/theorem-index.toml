@@ -1,0 +1,41 @@
+# Theorem index: every requirement with a "Machine-checked" scenario maps to the theorems
+# of TiramemsuProofs that prove it. Checked by `policy-check` (theorem-index rule).
+
+[[requirement]]
+spec = "store-contract"
+name = "The model store is exact and ordered"
+theorems = [
+  "Tiramemsu.Store.keyLt_strictOrder",
+  "Tiramemsu.Store.keyLt_total",
+  "Tiramemsu.Store.scanList_mem",
+  "Tiramemsu.Store.scanList_nodup",
+  "Tiramemsu.Store.scanList_sorted",
+  "Tiramemsu.Store.scanList?_valid",
+  "Tiramemsu.Store.scan_invalid",
+  "Tiramemsu.Store.scan_fold",
+  "Tiramemsu.Store.scan_fold_invalid",
+]
+
+[[requirement]]
+spec = "store-contract"
+name = "Model writes are atomic and never overwrite"
+theorems = [
+  "Tiramemsu.Store.op_wf",
+  "Tiramemsu.Store.op_error_unchanged",
+  "Tiramemsu.Store.write_outside_tx",
+  "Tiramemsu.Store.begin_nested",
+  "Tiramemsu.Store.insertTriple_spec",
+  "Tiramemsu.Store.insertTriple_reused",
+  "Tiramemsu.Store.insertTerm_spec",
+  "Tiramemsu.Store.insertTx_spec",
+  "Tiramemsu.Store.insert_no_loss",
+  "Tiramemsu.Store.retractRow_spec",
+  "Tiramemsu.Store.retract_spec",
+  "Tiramemsu.Store.retract_notFound",
+  "Tiramemsu.Store.retract_once",
+  "Tiramemsu.Store.commit_publishes",
+  "Tiramemsu.Store.rollback_spec",
+  "Tiramemsu.Store.rollback_restores",
+  "Tiramemsu.Store.rollbackTo_restores",
+  "Tiramemsu.Store.release_keeps",
+]

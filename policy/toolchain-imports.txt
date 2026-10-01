@@ -1,0 +1,2 @@
+# Lean toolchain modules beyond Init and Std that runtime code may import, one per line,
+# each reviewed when added (D7). Empty: the runtime carries its own JSON.
