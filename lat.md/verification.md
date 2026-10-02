@@ -88,6 +88,21 @@ The theorems are about the engine code itself, run on `ModelStore` through `erun
 
 Footprints (`Footprint.lean`, `Effects.lean`) classify the operations a computation may perform from its syntax tree: read-only steps leave the store unchanged, light steps leave every statement row unchanged, and non-inserting steps only retract live rows at the current transaction.
 
+## Proven Query Semantics
+
+M3a proves part of the query core's Tier 2 requirements over the model store in `TiramemsuProofs/Query/`; each proven requirement maps to its theorems in `policy/theorem-index.toml`. See [[query]].
+
+- Relational operators (`JoinLaws`, `DenoteJoin`): rows are padded functions, so merge and compatibility are pointwise and the cell laws lift to the bag join; path-free `Join` is permutation-invariant, associative and has `Join[]` as unit, as bags.
+- Structural validation (`Validate`): the reference semantics re-checks each node with the rule validation applies, and its leaves raise only `LErr`, so a prepared query never fails with `InvalidQuery`.
+- Aggregation (`Order`, `Aggregate`): the canonical value order is a linear order, so `SAMPLE`, `GROUP_CONCAT`, `MIN`/`MAX` and the double folds depend only on a group's multiset.
+- Sorted range scans and index choice (`Scan`): a model scan returns exactly the visible matching statements in key order, a seek the least matching next key, and adjacent dedup each distinct visible `(s, p, o)` once.
+- Automaton compilation (`Path/Lang`, `Path/Dfa`, `Path/Expr`): the declarative language of a path expression, `toRE` preserving it, the refined alphabet's agreement with every symbol, derivatives as left quotients, and the breadth-first construction's invariant give "the compiled automaton accepts exactly the expression's words, with a unique run".
+- Stable historical results (`Stable`): the reference semantics reads the store only at its leaves; an `AsOf(t)` leaf sees the same statements, transactions and (grown) dictionary on any extension by later commits, so the bag is unchanged. The theorem assumes the dictionary's datatype references are closed (`TermsClosed`, true of every state the writer builds but not yet proven for M2's verbs) and, for path patterns, a stable path semantics.
+
+- Evaluator = reference (`EvRun`, `Inlj`, `Pushdown`, `JoinCore`, `OrderLimit`, `EvalDenote`, `EvalSim`, `EvalDenoteTop`): on a model state the index nested loop over any order of stored patterns is the reference natural join (the M3b contract); pushed conjuncts, constant-equality seeding, the greedy order, the hash join, lateral paths and sideways binding preserve the reference bag; and for every query and statistics the evaluator returns a permutation of the reference bag whenever `denote` returns one (the list itself under a prepared root `OrderLimit`), path patterns included. Hypotheses: `IdBridge` (the M1 encode/decode bijection on the state's statement ids, not yet derived from the store invariant), equality constants with identity value equality (`IdEq`; false for out-of-range node ids and NUL-bearing language strings, where seeding diverges), and at most one eid column per match group in a stored pattern (`isoLocal`).
+
+Open (tested only, by the refinement, brute-force path and differential suites): path-search modes and fuel, graph scoping, time-respecting search, reversed evaluation, provenance erasure/soundness/sufficiency, and the bundle round trip.
+
 ## Tested Store Properties
 
 Everything else in the store contract is tested on both stores through the same interface code (`tiramemsu-tests contract`), plus SQLite-only cases.

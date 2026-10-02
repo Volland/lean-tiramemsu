@@ -13,6 +13,7 @@
 
 mod codec;
 mod m2;
+mod m3;
 
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{json, Value as J};
@@ -24,6 +25,7 @@ struct State {
     path: Option<String>,
     db: Option<Database>,
     m2: Option<m2::M2>,
+    m3: Option<m3::M3>,
 }
 
 fn err(code: &str, message: impl Into<String>) -> J {
@@ -87,6 +89,26 @@ fn handle(state: &mut State, op: &str, args: &J) -> Result<J, J> {
             .clone()
             .ok_or_else(|| err("InvalidArgument", "no database is open"))
     };
+    if op == "m3.sortKey" {
+        return m3::sort_keys(args);
+    }
+    if let Some(rest) = op.strip_prefix("m3.") {
+        return match rest {
+            "open" => {
+                state.m3 = None;
+                state.m3 = Some(m3::open(args)?);
+                Ok(J::Null)
+            }
+            "close" => {
+                state.m3 = None;
+                Ok(J::Null)
+            }
+            _ => match &state.m3 {
+                Some(m) => m3::handle(m, op, args),
+                None => Err(err("InvalidArgument", "no m3 database is open")),
+            },
+        };
+    }
     if let Some(rest) = op.strip_prefix("m2.") {
         return match rest {
             "open" => {
@@ -172,7 +194,7 @@ fn main() {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    let mut state = State { path: None, db: None, m2: None };
+    let mut state = State { path: None, db: None, m2: None, m3: None };
     for line in stdin.lock().lines() {
         let line = match line {
             Ok(l) => l,

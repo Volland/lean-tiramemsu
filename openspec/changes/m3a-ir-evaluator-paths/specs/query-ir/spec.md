@@ -69,7 +69,7 @@ A triple pattern and a path pattern SHALL carry a graph selector: `Any` (no cond
 - **THEN** validation fails with `InvalidQuery`
 
 ### Requirement: Expressions
-Filter conditions, LeftJoin conditions, Extend expressions, aggregate arguments and sort keys SHALL be expressions built from variables, constants, parameters, comparisons (`= != < <= > >=`), `sameTerm`, `AND`, `OR`, `NOT`, `BOUND`, `IN` / `NOT IN`, arithmetic (`+ - * /`, unary minus), `COALESCE`, `IF`, the SPARQL 1.1 scalar functions (string, numeric, date-time, type tests, casts to the XSD types), and `EXISTS` / `NOT EXISTS` over an IR subtree. An `EXISTS` subtree SHALL be correlated with the enclosing row only through shared variables.
+Filter conditions, LeftJoin conditions, Extend expressions, aggregate arguments and sort keys SHALL be expressions built from variables, constants, parameters, comparisons (`= != < <= > >=`), `sameTerm`, `AND`, `OR`, `NOT`, `BOUND`, `IN` / `NOT IN`, arithmetic (`+ - * /`, unary minus), `COALESCE`, `IF`, the SPARQL 1.1 scalar functions (string, numeric, date-time, type tests, casts to the XSD types), and `EXISTS` / `NOT EXISTS` over an IR subtree. `REGEX` and `REPLACE` SHALL fail with `Unsupported` until the SPARQL front end supplies their regular-expression dialect. An `EXISTS` subtree SHALL be correlated with the enclosing row only through shared variables.
 
 #### Scenario: Correlated existence test
 - **WHEN** `Filter(EXISTS (?x confidence ?c), (?x a Person))` is evaluated
@@ -116,7 +116,7 @@ A triple pattern SHALL optionally belong to a numbered match group. Under `RelIs
 - **THEN** the join is empty under `RelIsomorphism` and has one row under `Homomorphism`
 
 ### Requirement: Structural validation
-Validation SHALL run before any store read, need no database, and fail with `InvalidQuery` naming the first problem for: an `Extend` that rebinds a variable its input can bind; an aggregate output that collides with a grouping variable or another output; an inline-values row whose width differs from its variable list, a variable in a values cell, or a repeated values variable; a negative skip or limit; a virtual-predicate triple pattern that binds an eid; an empty graph set or a variable inside a graph set; a projected variable that the input cannot bind; a function applied to the wrong number of arguments. A path pattern whose start and end are both unbound at evaluation time SHALL fail with `Unsupported` ("path needs a bound endpoint"), not `InvalidQuery`.
+Validation SHALL run before any store read, need no database, and fail with `InvalidQuery` naming the first problem for: an `Extend` that rebinds a variable its input can bind; an aggregate output that collides with a grouping variable or another output; an inline-values row whose width differs from its variable list, a variable in a values cell, or a repeated values variable; a negative skip or limit; a virtual-predicate triple pattern that binds an eid or has a graph selector; an aggregate other than `COUNT` without an argument; an empty graph set or a variable inside a graph set; a projected variable that the input cannot bind; a function applied to the wrong number of arguments. A path pattern whose start and end are both unbound at evaluation time SHALL fail with `Unsupported` ("path needs a bound endpoint"), not `InvalidQuery`.
 
 #### Scenario: Extend rebinds a bound variable
 - **WHEN** `Extend(?x := 1, (?x p ?y))` is validated

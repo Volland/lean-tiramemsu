@@ -14,6 +14,13 @@ import Test.Store.Main
 import Test.Store.Refine
 import Test.Store.Concurrency
 import Test.Store.Merge
+import Test.Query.Scenarios
+import Test.Query.Paths
+import Test.Query.Prov
+import Test.Query.Bundles
+import Test.Query.Api
+import Test.Query.Refine
+import Test.Query.Recipes
 
 def usage : String := "usage: tiramemsu-tests <probe [--large] | contract | plan [db] | compat <rust-db> | refine [--seeds N] [--ops M] [--start db] [--self-test] | schema-dump <db> | codec | storage | terms [--seeds N] [--ops M] | store [prefix] | merge [--seeds N] | store-refine [--seeds N] [--ops M] | concurrency [--seeds N]>"
 
@@ -32,4 +39,13 @@ def main (args : List String) : IO UInt32 := do
   | "store-refine" :: rest => Test.Store.Refine.main rest
   | "merge" :: rest => Test.Store.MergeTest.main rest
   | "concurrency" :: rest => Test.Store.Concurrency.main rest
+  | ["query"] => Test.Query.Scenarios.main
+  | ["paths"] => Test.Query.Paths.main
+  | ["provenance"] => Test.Query.Prov.main
+  | ["bundles"] => Test.Query.Bundles.main
+  | ["api"] => Test.Query.ApiTest.main
+  | ["recipes"] => Test.Query.Recipes.main
+  | ["query-refine"] => Test.Query.Refine.main
+  | ["query-refine", "--seeds", n] => Test.Query.Refine.main n.toNat!
+  | ["paths", "--seeds", n] => Test.Query.Paths.main n.toNat!
   | _ => IO.eprintln usage; pure 2

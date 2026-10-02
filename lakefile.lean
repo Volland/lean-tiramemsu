@@ -67,7 +67,7 @@ lean_exe «tiramemsu-tests» where
 lean_lib Oracle where
   srcDir := "tools"
   globs := #[.one `Oracle.Canon, .one `Oracle.Deviation, .one `Oracle.Driver, .one `Oracle.Scenario,
-    .one `Oracle.Fixture, .one `Oracle.Bench, .one `Oracle.Tests, .one `Oracle.Codec, .one `Oracle.Interchange, .one `Oracle.Store]
+    .one `Oracle.Fixture, .one `Oracle.Bench, .one `Oracle.Tests, .one `Oracle.Codec, .one `Oracle.Interchange, .one `Oracle.Store, .one `Oracle.Query, .one `Oracle.QueryBench]
 
 lean_exe oracle where
   srcDir := "tools"

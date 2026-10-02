@@ -72,6 +72,24 @@ else
   .lake/build/bin/tiramemsu-tests store-refine --seeds 50 --ops 200
 fi
 
+step "query core (M3a): IR and semantics, paths, provenance, bundles, API, CLI"
+.lake/build/bin/tiramemsu-tests query
+if [ "$mode" = nightly ]; then
+  .lake/build/bin/tiramemsu-tests paths --seeds 2000
+else
+  .lake/build/bin/tiramemsu-tests paths --seeds 200
+fi
+.lake/build/bin/tiramemsu-tests provenance
+.lake/build/bin/tiramemsu-tests bundles
+.lake/build/bin/tiramemsu-tests api
+.lake/build/bin/tiramemsu-tests recipes
+scripts/cli-golden.sh
+if [ "$mode" = nightly ]; then
+  .lake/build/bin/tiramemsu-tests query-refine --seeds 2000
+else
+  .lake/build/bin/tiramemsu-tests query-refine --seeds 100
+fi
+
 step "oracle: pin, read-only build, schema fixture"
 scripts/oracle-pin-check.sh
 if scripts/oracle-pin-check.sh "$(git -C "$RUST_REPO" rev-parse "$(pin_field commit)^")" >/dev/null 2>&1; then
@@ -102,6 +120,13 @@ else
   .lake/build/bin/oracle store --seeds 50 --ops 200
 fi
 
+step "oracle: query core (differential: IR, paths, bundles, sort keys)"
+if [ "$mode" = nightly ]; then
+  .lake/build/bin/oracle query --seeds 300 --queries 80 --ops 150
+else
+  .lake/build/bin/oracle query --seeds 20 --queries 40 --ops 100
+fi
+
 step "Rust-written fixtures: compatibility, plans, refinement"
 mkdir -p .oracle/fixtures
 if [ "$mode" = nightly ]; then seeds="1 2 3 4 5"; runs=1000; else seeds="1"; runs=100; fi
@@ -116,6 +141,7 @@ done
 step "benchmark harness smoke run (report-only)"
 .lake/build/bin/oracle bench --n 1000 --out .oracle/bench-smoke
 .lake/build/bin/oracle codec bench --n 10000 --out .oracle/bench-smoke/codec.md > /dev/null
+.lake/build/bin/oracle bench-query --n 500 --reps 5 --rounds 3 --out .oracle/bench-smoke/query.md > /dev/null
 
 echo
 echo "ci ($mode): all gates passed"

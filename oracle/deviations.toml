@@ -106,3 +106,68 @@ spec = "openspec/changes/m2-verified-store/specs/speculative-transactions/spec.m
 match.op = "speculation-storage-failure"
 match.lean = "err:Sqlite"
 match.rust = "err:Sqlite"
+
+# M3a (m3a-ir-evaluator-paths).
+
+[[deviation]]
+id = "rust-generated-sql-failure"
+summary = "The Rust build compiles IR to SQL and fails with a SQLite error on some valid trees (for example a constant Extend below an Aggregate: wrong number of bound parameters); the Lean build evaluates them."
+spec = "openspec/changes/m3a-ir-evaluator-paths/specs/query-semantics/spec.md#Reference semantics"
+match.op = "m3.execute"
+match.lean = "ok"
+match.rust = "err:Sqlite"
+
+[[deviation]]
+id = "rust-grouped-aggregate-over-empty-input"
+summary = "A grouped Aggregate over an empty Union, or grouped by a variable its input cannot bind, returns one row (group unbound, COUNT 0) in the Rust build; with a non-empty group and an empty input the Lean build returns no row, as the spec states."
+spec = "openspec/changes/m3a-ir-evaluator-paths/specs/query-semantics/spec.md#Aggregation"
+match.op = "m3.execute"
+match.argsContainAll = ["{\"aggregate\""]
+match.lean = "ok"
+match.rust = "ok"
+match.leanContains = "\"rows\":[]"
+
+[[deviation]]
+id = "lean-canonical-sample"
+summary = "SAMPLE returns the least value of its group in the canonical value order (so it is a function of the group's multiset, as the spec requires); the Rust build returns an arbitrary member."
+spec = "openspec/changes/m3a-ir-evaluator-paths/specs/query-semantics/spec.md#Aggregation"
+match.op = "m3.execute"
+match.argsContainAll = ["\"func\":\"sample\""]
+match.lean = "ok"
+match.rust = "ok"
+
+[[deviation]]
+id = "rust-optional-extend-constant"
+summary = "A constant Extend inside the right side of a LeftJoin stays bound on left rows without a match in the Rust build; the Lean build returns those left rows unchanged (the variable unbound), as the spec states."
+spec = "openspec/changes/m3a-ir-evaluator-paths/specs/query-semantics/spec.md#Relational operators"
+match.op = "m3.execute"
+match.argsContainAll = ["\"leftJoin\"", "\"extend\"", "\"expr\":{\"const\""]
+match.lean = "ok"
+match.rust = "ok"
+
+[[deviation]]
+id = "rust-union-mixed-columns"
+summary = "The Rust build rejects a Union whose column mixes stored terms and computed values (Unsupported); the Lean build evaluates it."
+spec = "openspec/changes/m3a-ir-evaluator-paths/specs/query-semantics/spec.md#Relational operators"
+match.op = "m3.execute"
+match.argsContainAny = ["{\"union\""]
+match.lean = "ok"
+match.rust = "err:Unsupported"
+
+[[deviation]]
+id = "lean-canonical-group-concat"
+summary = "GROUP_CONCAT joins its group's values in the canonical value order (a function of the multiset, as the spec requires); the Rust build concatenates in SQLite's group order."
+spec = "openspec/changes/m3a-ir-evaluator-paths/specs/query-semantics/spec.md#Aggregation"
+match.op = "m3.execute"
+match.argsContainAll = ["\"func\":\"group_concat\""]
+match.lean = "ok"
+match.rust = "ok"
+
+[[deviation]]
+id = "lean-asof-masks-retraction"
+summary = "Under AsOf(t), the virtual predicates tm:txRetracted, tm:retractedAt and tm:retractKind report no retraction for a statement retracted after t (the row is read as the as-of view shows it), so a past view never changes after later commits; the Rust build reports the later retraction."
+spec = "openspec/changes/m3a-ir-evaluator-paths/specs/query-semantics/spec.md#Stable historical results"
+match.op = "m3.execute"
+match.argsContainAll = ["asOf", "tm:"]
+match.lean = "ok"
+match.rust = "ok"

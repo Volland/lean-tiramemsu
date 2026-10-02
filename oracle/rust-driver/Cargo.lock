@@ -644,6 +644,7 @@ dependencies = [
  "tiramemsu",
  "tiramemsu-json",
  "tm-core",
+ "tm-exec",
  "tm-rusqlite",
 ]
 

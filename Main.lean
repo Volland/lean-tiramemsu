@@ -1,12 +1,12 @@
 /-
-The `tiramemsu` executable: `version` and the oracle `driver`.
+The `tiramemsu` executable: the command-line tool (`tiramemsu <db> <command> …`), `version` and
+the oracle `driver`.
 -/
 import Tiramemsu
 
 open Tiramemsu.Shell
 
-def usage : String :=
-  "usage: tiramemsu version [--verbose]\n       tiramemsu driver"
+def usage : String := Tiramemsu.Cli.usage
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -15,4 +15,5 @@ def main (args : List String) : IO UInt32 := do
     | .ok lines => lines.forM IO.println; pure 0
     | .error e => IO.eprintln s!"tiramemsu: {e}"; pure 1
   | ["driver"] => driverMain
-  | _ => IO.eprintln usage; pure 2
+  | [] => IO.eprintln usage; pure 2
+  | _ => Tiramemsu.Cli.main args

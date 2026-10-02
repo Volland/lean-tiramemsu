@@ -17,6 +17,8 @@ import Oracle.Fixture
 import Oracle.Codec
 import Oracle.Interchange
 import Oracle.Store
+import Oracle.Query
+import Oracle.QueryBench
 
 open Oracle
 
@@ -52,6 +54,12 @@ def main (args : List String) : IO UInt32 := do
   match args with
   | ["test"] => Oracle.Tests.main
   | "store" :: rest => Oracle.Store.main rest
+  | "query" :: rest => Oracle.Query.main rest
+  | "bench-query" :: rest =>
+    let out := match rest.dropWhile (· != "--out") with
+      | _ :: d :: _ => d
+      | _ => "oracle/bench/query.md"
+    Oracle.QueryBench.main (flag rest "--n" 1000) (flag rest "--reps" 20) (flag rest "--rounds" 5) out
   | "scenario" :: files => if files.isEmpty then pure 2 else runScenarios files
   | "fixture" :: path :: rest =>
     let rust ← startRust

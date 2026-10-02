@@ -11,3 +11,9 @@ Tiramemsu.Term.Backend
 Tiramemsu.Engine
 Tiramemsu.View
 Tiramemsu.Model
+Tiramemsu.IR
+Tiramemsu.Sem
+Tiramemsu.Exec
+Tiramemsu.Path
+Tiramemsu.Prov
+Tiramemsu.Bundle

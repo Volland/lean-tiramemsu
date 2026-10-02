@@ -447,3 +447,113 @@ theorems = [
   "Tiramemsu.Model.merge_keeps_eids",
 ]
 
+
+# M3a: query core (openspec/changes/m3a-ir-evaluator-paths)
+
+[[requirement]]
+spec = "query-semantics"
+name = "Relational operators"
+theorems = [
+  "Tiramemsu.Sem.denote_join_perm",
+  "Tiramemsu.Sem.denote_join_assoc",
+  "Tiramemsu.Sem.denote_join_unit",
+  "Tiramemsu.Sem.joinAll_perm",
+  "Tiramemsu.Sem.joinB_comm",
+  "Tiramemsu.Sem.joinB_assoc",
+  "Tiramemsu.Sem.joinSB_unit_left",
+  "Tiramemsu.Sem.joinSB_unit_right",
+]
+
+[[requirement]]
+spec = "query-ir"
+name = "Structural validation"
+theorems = [
+  "Tiramemsu.Sem.validation_sound",
+  "Tiramemsu.Sem.denote_noInv",
+  "Tiramemsu.Sem.prepare_validates",
+]
+
+[[requirement]]
+spec = "query-semantics"
+name = "Aggregation"
+theorems = [
+  "Tiramemsu.Sem.aggregateOne_perm",
+  "Tiramemsu.Sem.aggregateB_perm",
+  "Tiramemsu.Sem.sortValues_perm",
+  "Tiramemsu.Sem.valueLe_antisymm",
+]
+
+[[requirement]]
+spec = "nested-loop-join"
+name = "Sorted range-scan interface"
+theorems = [
+  "Tiramemsu.Exec.rangeScan_spec",
+  "Tiramemsu.Exec.scan_matches_iff",
+  "Tiramemsu.Exec.seek_least",
+]
+
+[[requirement]]
+spec = "nested-loop-join"
+name = "Index choice"
+theorems = [
+  "Tiramemsu.Exec.dedupAdj_scan",
+  "Tiramemsu.Exec.dedupAdj_spec",
+]
+
+[[requirement]]
+spec = "query-semantics"
+name = "Stable historical results"
+theorems = [
+  "Tiramemsu.Sem.denote_stable",
+  "Tiramemsu.Sem.prepared_stable",
+  "Tiramemsu.Sem.denote_sub",
+  "Tiramemsu.Sem.triplePat_sub",
+]
+
+[[requirement]]
+spec = "path-evaluation"
+name = "Automaton compilation"
+theorems = [
+  "Tiramemsu.Path.dfa_lang",
+  "Tiramemsu.Path.buildDfa_lang",
+  "Tiramemsu.Path.runL_unique",
+  "Tiramemsu.Path.toRE_lang",
+  "Tiramemsu.Path.lang_inverse",
+  "Tiramemsu.Path.RE.deriv_lang",
+]
+
+# M3b contract: index nested-loop evaluation in every order of the patterns equals the reference
+# natural join (over the sorted range-scan interface); a planner order needs no proof of its own.
+[[requirement]]
+spec = "nested-loop-join"
+name = "Join-order independence"
+theorems = [
+  "Tiramemsu.Exec.inlj_order_independent",
+  "Tiramemsu.Exec.inlj_eq_denote",
+  "Tiramemsu.Exec.patternRows_step",
+  "Tiramemsu.Exec.ev_inljStep",
+]
+
+[[requirement]]
+spec = "nested-loop-join"
+name = "Filter push-down and binding passing"
+theorems = [
+  "Tiramemsu.Exec.ev_joinCore",
+  "Tiramemsu.Exec.ev_inljGo",
+  "Tiramemsu.Exec.ev_leftJoinSideways",
+  "Tiramemsu.Exec.seed_joinB",
+  "Tiramemsu.Exec.greedyOrder_perm",
+  "Tiramemsu.Exec.joinHash_eq",
+]
+
+[[requirement]]
+spec = "query-semantics"
+name = "Reference semantics"
+theorems = [
+  "Tiramemsu.Exec.eval_eq_denote",
+  "Tiramemsu.Exec.eval_sim",
+  "Tiramemsu.Exec.eval_orderLimit_eq",
+  "Tiramemsu.Exec.pathSim_engine",
+  "Tiramemsu.Exec.ev_virtualPat",
+  "Tiramemsu.Sem.orderLimitB_perm",
+]

@@ -21,8 +21,14 @@ structure Deviation where
   spec : String
   op : Option String
   argsContainAny : Array String
+  /-- Substrings the compact arguments must all contain (`match.argsContainAll`). -/
+  argsContainAll : Array String := #[]
   lean : String
   rust : String
+  /-- Substrings the compact Lean / Rust results must contain (`match.leanContains`,
+  `match.rustContains`). -/
+  leanContains : Option String := none
+  rustContains : Option String := none
   deriving Repr, Inhabited
 
 def loadDeviations (path : System.FilePath) : IO (Array Deviation) := do
@@ -32,8 +38,9 @@ def loadDeviations (path : System.FilePath) : IO (Array Deviation) := do
   return (doc.all "deviation").map fun t =>
     { id := (t.str? "id").getD "", summary := (t.str? "summary").getD "",
       spec := (t.str? "spec").getD "", op := t.str? "match.op",
-      argsContainAny := t.strs "match.argsContainAny",
-      lean := (t.str? "match.lean").getD "*", rust := (t.str? "match.rust").getD "*" }
+      argsContainAny := t.strs "match.argsContainAny", argsContainAll := t.strs "match.argsContainAll",
+      lean := (t.str? "match.lean").getD "*", rust := (t.str? "match.rust").getD "*",
+      leanContains := t.str? "match.leanContains", rustContains := t.str? "match.rustContains" }
 
 def outcomeMatches (pat : String) : Outcome → Bool
   | .ok _ => pat == "*" || pat == "ok"
@@ -44,7 +51,15 @@ def Deviation.covers (d : Deviation) (op : String) (args : Json) (lean rust : Ou
   let a := args.compress
   d.op.all (· == op) &&
   (d.argsContainAny.isEmpty || d.argsContainAny.any fun s => (a.splitOn s).length > 1) &&
-  outcomeMatches d.lean lean && outcomeMatches d.rust rust
+  d.argsContainAll.all (fun s => (a.splitOn s).length > 1) &&
+  outcomeMatches d.lean lean && outcomeMatches d.rust rust &&
+  contains d.leanContains lean && contains d.rustContains rust
+where
+  contains (pat : Option String) (o : Outcome) : Bool :=
+    match pat, o with
+    | none, _ => true
+    | some p, .ok r => (r.compress.splitOn p).length > 1
+    | some _, .err .. => false
 
 /-- The first registry entry covering a mismatch. -/
 def findDeviation (reg : Array Deviation) (op : String) (args : Json) (lean rust : Outcome) :

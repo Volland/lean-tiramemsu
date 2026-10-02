@@ -123,9 +123,11 @@ structure ReaderCache where
   capacity : Nat
   entries : IO.Ref (Std.HashMap Nat (Row × Nat))
   tick : IO.Ref Nat
+  /-- Key → id of terms found (only hits: terms are immutable, so a hit stays valid). -/
+  keys : IO.Ref (Std.HashMap CKey Nat)
 
 def ReaderCache.new (capacity : Nat) : IO ReaderCache := do
-  pure { capacity := max capacity 1, entries := ← IO.mkRef {}, tick := ← IO.mkRef 0 }
+  pure { capacity := max capacity 1, entries := ← IO.mkRef {}, tick := ← IO.mkRef 0, keys := ← IO.mkRef {} }
 
 def ReaderCache.get (c : ReaderCache) (i : Nat) : IO (Option Row) := do
   match (← c.entries.get)[i]? with
@@ -155,7 +157,12 @@ instance : TermReader ReaderM where
 
 /-- A snapshot reader behind the LRU (committed rows only). -/
 instance : TermBackend (ReaderT ReaderCache ReaderM) where
-  lookupKey k := fun _ conn => lookupOn conn k
+  lookupKey k := fun c conn => do
+    if let some i := (← (c.keys.get : IO _))[k.ckey]? then return some i
+    let r ← lookupOn conn k
+    if let some i := r then
+      if (← (c.keys.get : IO _)).size < c.capacity then (c.keys.modify (·.insert k.ckey i) : IO _)
+    pure r
   rowById i := fun c conn => do
     if let some r ← (c.get i : IO _) then return some r
     let r ← byIdOn conn i

@@ -14,6 +14,7 @@ import Tiramemsu.Storage.Open
 import Tiramemsu.Term.Cache
 import Tiramemsu.Shell.Db
 import Tiramemsu.Shell.Bridge
+import Tiramemsu.Shell.DriverM3
 
 namespace Tiramemsu.Shell
 
@@ -258,6 +259,7 @@ partial def driverMain : IO UInt32 := do
   let stdout ← IO.getStdout
   let cur ← IO.mkRef (none : Option Store)
   let m2 ← IO.mkRef (none : Option M2)
+  let m3 ← IO.mkRef (none : Option Api.Db)
   let rec loop : IO Unit := do
     let line ← stdin.getLine
     if line.isEmpty then return
@@ -269,7 +271,8 @@ partial def driverMain : IO UInt32 := do
         let id := (req.get? "id").getD .null
         let op := (req.getStr? "op").getD ""
         let args := (req.get? "args").getD .null
-        let res ← if op.startsWith "m2." then handleM2 m2 op args
+        let res ← if op.startsWith "m3." then handleM3 m3 op args
+          else if op.startsWith "m2." then handleM2 m2 op args
           else if op == "bench" then benchOp cur m2 args
           else if op == "rawDump" && (← m2.get).isSome then do
             match ← m2.get with
@@ -291,6 +294,7 @@ partial def driverMain : IO UInt32 := do
   loop
   if let some st ← cur.get then st.close
   if let some m ← m2.get then m.db.close
+  if let some d ← m3.get then d.close
   return 0
 
 end Tiramemsu.Shell

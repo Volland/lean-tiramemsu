@@ -98,15 +98,14 @@ Alternative rejected: proving each planner order correct (planner proof burden e
 
 ### Path engine
 
-Letters are `(class, direction)` over a refined alphabet (one stored predicate, "other relationship-view predicate" for the wildcard, `sys:subject`, `sys:object`, `sys:predicate`). `^` is pushed to atoms (reversing sequences), `{m,n}` is unrolled, Thompson NFA (cap 200 000 states) then subset construction (cap 4 096 states, else `Unsupported("path expression too complex")`). Search is BFS over `(node, dfaState)` layers with explicit fuel:
+Letters are `(class, direction)` over a refined alphabet (one stored predicate, "other relationship-view predicate" for the wildcard, `sys:subject`, `sys:object`, `sys:predicate`). `^` is pushed to atoms (reversing sequences), `{m,n}` is unrolled, and the expression compiles directly to a DFA by Brzozowski derivatives on normalized expressions (unions flattened, deduplicated and sorted, so states are equal modulo associativity, commutativity and idempotence); more than 4 096 states, or an unrolled expression above 200 000 nodes, is `Unsupported("path expression too complex")`. (The first draft planned a Thompson NFA plus subset construction; derivatives give the same deterministic automaton without the intermediate NFA and with smaller state counts.) Search is BFS over `(node, dfaState)` layers (an arena of trail nodes for TRAIL) with explicit fuel `path_max_states + 1` layers in every mode:
 
-| Mode | Fuel (layers) | Why it suffices |
-|---|---|---|
-| REACH, ANY/ALL_SHORTEST | `min(maxHops, N·Q)` | a shortest accepting walk never repeats a `(node, state)` pair |
-| TRAIL | `min(maxHops, I)` | a trail never repeats one of `I` relationship identities |
-| time-respecting REACH | rounds `≤ N·Q·(card T + 1)` | each pair's best time strictly decreases within the finite set `T` |
+| Mode | Why the fuel suffices |
+|---|---|
+| REACH, ANY/ALL_SHORTEST, TRAIL | a layer is non-empty only when the previous one charged at least one new search state, and more than `path_max_states` charged states fail with `PathLimitExceeded` first; `maxHops` cuts the depth separately |
+| time-respecting REACH | the same: a round runs only when some `(node, state)` pair improved its time, and each improvement is charged |
 
-`N` = start plus distinct nodes of visible statements, `Q` = DFA states, `I` = visible stored eids + 3 × visible statements, `T` = `{after} ∪ {v_from of visible statements}`. The `path_max_states` guard is separate and only ever fails, never truncates.
+So the fuel is never the reason a search stops: it ends with an empty layer, at `maxHops`, or with `PathLimitExceeded`. The `path_max_states` guard only ever fails, never truncates.
 
 Alternative rejected: `partial def` BFS (forbidden in verified modules); recursive-CTE-style fixpoint (no path values, slower).
 

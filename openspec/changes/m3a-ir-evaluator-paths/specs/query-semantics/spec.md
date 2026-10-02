@@ -31,7 +31,7 @@ A triple pattern SHALL match the statements visible in its own view (per the sto
 - **THEN** two rows are produced, with `?g = g1` and `?g = g2`
 
 ### Requirement: Virtual predicate patterns
-A triple pattern whose predicate is the constant `sys:subject`, `sys:object` or `sys:predicate` SHALL match, for each statement `e` visible in the pattern's view, the triple `(e, that predicate, part of e)`. The constants `tm:txAdded` and `tm:txRetracted` SHALL yield the adding and retracting transaction; `tm:addedAt` and `tm:retractedAt` their commit instants as date-times with offset `Z`; `tm:validFrom` and `tm:validTo` the valid-time bounds as date-times; `tm:retractKind` the retraction kind. An absent value (a live statement's retraction, an unbounded valid time) SHALL produce no triple. A constant object SHALL compare by value (a date-time by instant). A variable predicate SHALL NOT match virtual triples, and virtual triples SHALL be computed from statement rows, never from stored triples.
+A triple pattern whose predicate is the constant `sys:subject`, `sys:object` or `sys:predicate` SHALL match, for each statement `e` visible in the pattern's view, the triple `(e, that predicate, part of e)`. The constants `tm:txAdded` and `tm:txRetracted` SHALL yield the adding and retracting transaction; `tm:addedAt` and `tm:retractedAt` their commit instants as date-times with offset `Z`; `tm:validFrom` and `tm:validTo` the valid-time bounds as date-times; `tm:retractKind` the retraction kind. An absent value (a live statement's retraction, an unbounded valid time) SHALL produce no triple. A constant object SHALL compare by value (a date-time by instant). A variable predicate SHALL NOT match virtual triples, and virtual triples SHALL be computed from statement rows, never from stored triples. Under an `AsOf(t)` view a statement SHALL be read as that view shows it: no retraction, so `tm:txRetracted`, `tm:retractedAt` and `tm:retractKind` produce no triple for a statement retracted after `t` (listed deviation `lean-asof-masks-retraction`; it keeps past views stable).
 
 #### Scenario: Subject of a statement
 - **WHEN** `e1 = (alice worksAt acme)` is live and `(e1 sys:subject ?s)` is evaluated under `Now`
@@ -87,7 +87,7 @@ An expression SHALL evaluate to a term or to an error. An unbound variable (`Unb
 - **THEN** the row is kept
 
 ### Requirement: Arithmetic and value comparison
-Integer and decimal arithmetic SHALL be exact. Double arithmetic SHALL use hardware IEEE binary64 operations, which are part of the trusted base and opaque to the proofs. Numeric comparison SHALL compare by value across integer, decimal and double; date-times SHALL compare by instant; strings by code point.
+Integer and decimal arithmetic (`+ - *` and unary minus) SHALL be exact. Division `/` SHALL be binary64 division of the operands' numeric values, as in the Rust build. Double arithmetic SHALL use hardware IEEE binary64 operations, which are part of the trusted base and opaque to the proofs. Numeric comparison SHALL compare by value across integer, decimal and double; date-times SHALL compare by instant; strings by code point.
 
 #### Scenario: Mixed numeric comparison
 - **WHEN** `Filter(?x < 2.5)` meets `?x = 2` (an integer)
@@ -113,7 +113,7 @@ Integer and decimal arithmetic SHALL be exact. Double arithmetic SHALL use hardw
 - **THEN** "an aggregate's result depends only on the multiset of its group's rows" holds as a theorem whose axioms satisfy the proof policy
 
 ### Requirement: Ordering, skip and limit
-`OrderLimit(keys, skip, limit)` SHALL sort rows by the keys in order, each by the value sort order of the codec (byte-identical to the Rust sort key), descending keys reversed, an unbound or erroring key first in ascending order. Rows equal on every key SHALL be ordered by the canonical row order (each cell's sort key in variable order, missing first). Then `skip` rows SHALL be dropped and at most `limit` kept.
+`OrderLimit(keys, skip, limit)` SHALL sort rows by the keys in order, each by the value sort order of the codec (byte-identical to the Rust sort key), descending keys reversed, an unbound or erroring key first in ascending order under `Unbound` missing semantics and last under `Null3VL` (the Rust build's NULL placement). Rows equal on every key SHALL be ordered by the canonical row order (each cell's sort key in variable order, missing first). Then `skip` rows SHALL be dropped and at most `limit` kept.
 
 #### Scenario: Strings sort by value, not by id
 - **WHEN** names `"bob"` and `"alice"` were stored in that order and rows are ordered by name ascending

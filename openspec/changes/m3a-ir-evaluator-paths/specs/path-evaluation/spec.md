@@ -20,7 +20,7 @@ A path expression SHALL be built from atoms, inverse (`^`), sequence (`/`), alte
 - **THEN** the atom matches no hop and no error is raised
 
 ### Requirement: Path text syntax
-Path text SHALL follow SPARQL 1.1 property-path syntax and precedence (`^` and postfix operators bind tighter than `/`, which binds tighter than `|`) plus `{m,n}`, `{m,}` and `{n}`. Atoms SHALL be `<iri>`, CURIEs over declared prefixes and `sys:`, `tm:`, `rdf:`, `xsd:`, or bare names resolved through the database vocabulary. Malformed text SHALL fail with a `Parse` error of dialect `Path` carrying the byte span. A negated property set SHALL fail with `Unsupported`.
+Path text SHALL follow SPARQL 1.1 property-path syntax and precedence (`^` and postfix operators bind tighter than `/`, which binds tighter than `|`) plus `{m,n}`, `{m,}` and `{n}`. Atoms SHALL be `<iri>`, CURIEs over declared prefixes and `sys:`, `tm:`, `rdf:`, `xsd:`, or bare names resolved through the database vocabulary. Malformed text SHALL fail with a `Parse` error of dialect `Path` carrying the byte span. A negated property set SHALL fail with `Unsupported` (the Rust build reports it as a `Parse` error; the error kind is the only difference).
 
 #### Scenario: Precedence
 - **WHEN** `^a/b|c` is parsed
@@ -110,7 +110,7 @@ In `ANY_SHORTEST` mode the result SHALL be, per distinct end, the one matching p
 - **THEN** "ANY_SHORTEST returns the hop-key-least minimal matching path per end and ALL_SHORTEST every minimal matching path exactly once" holds as a theorem whose axioms satisfy the proof policy
 
 ### Requirement: Termination and search bound
-Every mode SHALL terminate on graphs with cycles, self-loops and statement-layer cycles, without a hop bound in `REACH`, `ANY_SHORTEST`, `ALL_SHORTEST` and `TRAIL`. The search SHALL run on explicit fuel whose bound (nodes × automaton states for `REACH` and the shortest modes; distinct relationship identities for `TRAIL`) is proven sufficient, so fuel exhaustion never truncates a result.
+Every mode SHALL terminate on graphs with cycles, self-loops and statement-layer cycles, without a hop bound in `REACH`, `ANY_SHORTEST`, `ALL_SHORTEST` and `TRAIL`. The search SHALL run on explicit fuel whose bound (`path_max_states + 1` layers in every mode: a layer runs only after the previous one charged a new search state, and more than `path_max_states` charged states fail with `PathLimitExceeded`) is proven sufficient, so fuel exhaustion never truncates a result.
 
 #### Scenario: Reachability on a cycle
 - **WHEN** `knows*` is evaluated on the cycle `a→b→c→a` without a hop bound
