@@ -522,6 +522,85 @@ theorems = [
   "Tiramemsu.Path.RE.deriv_lang",
 ]
 
+# Path modes: stated against the declarative walk specification (TiramemsuProofs/Path/Spec) under
+# `HopsExact` (the hop layer lists exactly the hops of the walk relation).
+[[requirement]]
+spec = "path-evaluation"
+name = "Reachability mode"
+theorems = [
+  "Tiramemsu.Path.reach_spec",
+  "Tiramemsu.Path.reach_acc",
+]
+
+[[requirement]]
+spec = "path-evaluation"
+name = "Trail mode"
+theorems = [
+  "Tiramemsu.Path.trail_spec",
+]
+
+[[requirement]]
+spec = "path-evaluation"
+name = "Termination and search bound"
+theorems = [
+  "Tiramemsu.Path.reachLoop_fuel",
+  "Tiramemsu.Path.trailLoop_fuel",
+  "Tiramemsu.Path.reachTimedLoop_fuel",
+  "Tiramemsu.Path.shortestLoop_fuel",
+]
+
+[[requirement]]
+spec = "path-evaluation"
+name = "Shortest modes"
+theorems = [
+  "Tiramemsu.Path.allShortest_spec",
+  "Tiramemsu.Path.anyShortest_spec",
+  "Tiramemsu.Path.anyShortest_least",
+  "Tiramemsu.Path.paths_complete",
+  "Tiramemsu.Path.paths_nodup",
+  "Tiramemsu.Path.viewHop_fun",
+  "Tiramemsu.Path.viewHop_keyFun",
+]
+
+[[requirement]]
+spec = "path-evaluation"
+name = "Endpoint binding"
+theorems = [
+  "Tiramemsu.Path.reach_fromEnd",
+  "Tiramemsu.Path.trail_fromEnd",
+  "Tiramemsu.Path.allShortest_fromEnd",
+  "Tiramemsu.Path.anyShortest_fromEnd",
+  "Tiramemsu.Path.matchWalk_inv",
+  "Tiramemsu.Path.viewHop_symm",
+]
+
+[[requirement]]
+spec = "path-evaluation"
+name = "Time-respecting evaluation"
+theorems = [
+  "Tiramemsu.Path.stepTime_mono",
+  "Tiramemsu.Path.timeWalk_mono",
+  "Tiramemsu.Path.reachTimed_spec",
+  "Tiramemsu.Path.reachTimed_tw",
+  "Tiramemsu.Path.reachTimed_antitone",
+  "Tiramemsu.Path.reachTimedLoop_fuel",
+  "Tiramemsu.Path.reachTimedLoop_bound",
+  "Tiramemsu.Path.reachTimed_bound",
+  "Tiramemsu.Path.trail_spec",
+]
+
+[[requirement]]
+spec = "path-evaluation"
+name = "Graph-scoped evaluation"
+theorems = [
+  "Tiramemsu.Path.trail_graph_members",
+  "Tiramemsu.Path.trail_graph",
+  "Tiramemsu.Path.reach_graph",
+  "Tiramemsu.Path.hopsExact_scoped",
+  "Tiramemsu.Path.scopeOK_iff",
+  "Tiramemsu.Path.isWalk_scoped",
+]
+
 # M3b contract: index nested-loop evaluation in every order of the patterns equals the reference
 # natural join (over the sorted range-scan interface); a planner order needs no proof of its own.
 [[requirement]]

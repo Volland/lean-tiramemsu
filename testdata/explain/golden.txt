@@ -1,0 +1,26 @@
+Join
+  pattern (<urn:tiramemsu:v:alice> <urn:tiramemsu:v:knows> ?b) via spo [s=<urn:tiramemsu:v:alice>, p=<urn:tiramemsu:v:knows>] live
+  pattern (?b <urn:tiramemsu:v:worksAt> ?c) via spo [s=?b, p=<urn:tiramemsu:v:worksAt>] live
+{"children":[],"op":"Join","paths":[],"patterns":[{"access":"spo","family":"live","filters":[],"pattern":"(<urn:tiramemsu:v:alice> <urn:tiramemsu:v:knows> ?b)","prefix":["s=<urn:tiramemsu:v:alice>","p=<urn:tiramemsu:v:knows>"]},{"access":"spo","family":"live","filters":[],"pattern":"(?b <urn:tiramemsu:v:worksAt> ?c)","prefix":["s=?b","p=<urn:tiramemsu:v:worksAt>"]}]}
+---
+Filter+Join (?c = <urn:tiramemsu:v:acme>)
+  pattern (?x <urn:tiramemsu:v:worksAt> ?c) via pos [p=<urn:tiramemsu:v:worksAt>, o=?c] live filter (?c = <urn:tiramemsu:v:acme>)
+{"children":[],"op":"Filter+Join (?c = <urn:tiramemsu:v:acme>)","paths":[],"patterns":[{"access":"pos","family":"live","filters":["(?c = <urn:tiramemsu:v:acme>)"],"pattern":"(?x <urn:tiramemsu:v:worksAt> ?c)","prefix":["p=<urn:tiramemsu:v:worksAt>","o=?c"]}]}
+---
+Project distinct [?x]
+  LeftJoin
+    Join
+      pattern (?x <urn:tiramemsu:v:worksAt> ?c) via pos [p=<urn:tiramemsu:v:worksAt>] live
+    Join
+      pattern (?c <urn:tiramemsu:v:locatedIn> ?city) via pos [p=<urn:tiramemsu:v:locatedIn>] live
+{"children":[{"children":[{"children":[],"op":"Join","paths":[],"patterns":[{"access":"pos","family":"live","filters":[],"pattern":"(?x <urn:tiramemsu:v:worksAt> ?c)","prefix":["p=<urn:tiramemsu:v:worksAt>"]}]},{"children":[],"op":"Join","paths":[],"patterns":[{"access":"pos","family":"live","filters":[],"pattern":"(?c <urn:tiramemsu:v:locatedIn> ?city)","prefix":["p=<urn:tiramemsu:v:locatedIn>"]}]}],"op":"LeftJoin","paths":[],"patterns":[]}],"op":"Project distinct [?x]","paths":[],"patterns":[]}
+---
+Path
+  path (<urn:tiramemsu:v:a> <urn:tiramemsu:v:knows>+ ?y) TRAIL states=2 forward
+{"children":[],"op":"Path","paths":[{"direction":"forward","mode":"TRAIL","pattern":"(<urn:tiramemsu:v:a> <urn:tiramemsu:v:knows>+ ?y)","states":2}],"patterns":[]}
+---
+Join
+  pattern (?s ?p ?o) via spo [s=?s] live
+  Values [?s]
+{"children":[{"children":[],"op":"Values [?s]","paths":[],"patterns":[]}],"op":"Join","paths":[],"patterns":[{"access":"spo","family":"live","filters":[],"pattern":"(?s ?p ?o)","prefix":["s=?s"]}]}
+---

@@ -59,3 +59,13 @@ import TiramemsuProofs.Query.EvalDenoteTop
 import TiramemsuProofs.Path.Lang
 import TiramemsuProofs.Path.Dfa
 import TiramemsuProofs.Path.Expr
+import TiramemsuProofs.Path.Fuel
+import TiramemsuProofs.Path.Spec
+import TiramemsuProofs.Path.Reach
+import TiramemsuProofs.Path.Trail
+import TiramemsuProofs.Path.Inverse
+import TiramemsuProofs.Path.Graph
+import TiramemsuProofs.Path.Timed
+import TiramemsuProofs.Path.TimedBound
+import TiramemsuProofs.Path.Shortest
+import TiramemsuProofs.Path.ShortestKey

@@ -169,44 +169,48 @@ def storedNb (d : Dir) (x : Int64) (r : TripleRow) : Nb :=
 def VKind.part (k : VKind) (r : TripleRow) : Int64 :=
   match k with | .subject => r.s | .object => r.o | .predicate => r.p
 
+/-- The neighbours of a node for one letter class, before the graph scope. -/
+def fetchRaw (c : Ctx) (lc : LClass) (x : Int64) : EvM (List Nb) :=
+  match lc with
+  | .pred iri d rel =>
+    match c.idOf iri with
+    | none => pure []
+    | some p => do
+      let rows ← liftR (match d with
+        | .out => rangeScan .spo c.view [x, p]
+        | .inn => rangeScan .pos c.view [p, x])
+      let rows ← match rel with
+        | none => pure rows
+        | some want => rows.filterM fun r => do
+          return (← c.rv.passes r.p (if d == .out then r.o else x)) == want
+      pure (rows.map (storedNb d x))
+  | .other d => do
+    let rows ← liftR (match d with
+      | .out => rangeScan .spo c.view [x]
+      | .inn => rangeScan .osp c.view [x])
+    let excl := mentioned c d
+    let rows ← rows.filterM fun r => do
+      if excl.contains r.p then return false
+      c.rv.passes r.p (if d == .out then r.o else x)
+    pure (rows.map (storedNb d x))
+  | .virt k .out => do
+    if (ObjectId.mk x).tagBits != Tag.stmt.toUInt64 then pure []
+    else
+      match ← liftR (lookupEid c.view x) with
+      | none => pure []
+      | some r => pure [{ hop := { eid := x, pred := virtualPredId k, dir := .out, kind := k.code },
+                          to := k.part r, vFrom := r.vFrom, vTo := r.vTo }]
+  | .virt k .inn => do
+    let rows ← liftR (match k with
+      | .subject => rangeScan .spo c.view [x]
+      | .object => rangeScan .osp c.view [x]
+      | .predicate => rangeScan .pos c.view [x])
+    pure (rows.map fun r => { hop := { eid := r.eid, pred := virtualPredId k, dir := .inn, kind := k.code },
+                              to := r.eid, vFrom := r.vFrom, vTo := r.vTo })
+
 /-- The neighbours of a node for one letter class. -/
 def fetchClass (c : Ctx) (lc : LClass) (x : Int64) : EvM (List Nb) := do
-  let nbs ← match lc with
-    | .pred iri d rel =>
-      match c.idOf iri with
-      | none => pure []
-      | some p => do
-        let rows ← liftR (match d with
-          | .out => rangeScan .spo c.view [x, p]
-          | .inn => rangeScan .pos c.view [p, x])
-        let rows ← match rel with
-          | none => pure rows
-          | some want => rows.filterM fun r => do
-            return (← c.rv.passes r.p (if d == .out then r.o else x)) == want
-        pure (rows.map (storedNb d x))
-    | .other d => do
-      let rows ← liftR (match d with
-        | .out => rangeScan .spo c.view [x]
-        | .inn => rangeScan .osp c.view [x])
-      let excl := mentioned c d
-      let rows ← rows.filterM fun r => do
-        if excl.contains r.p then return false
-        c.rv.passes r.p (if d == .out then r.o else x)
-      pure (rows.map (storedNb d x))
-    | .virt k .out => do
-      if (ObjectId.mk x).tagBits != Tag.stmt.toUInt64 then pure []
-      else
-        match ← liftR (lookupEid c.view x) with
-        | none => pure []
-        | some r => pure [{ hop := { eid := x, pred := virtualPredId k, dir := .out, kind := k.code },
-                            to := k.part r, vFrom := r.vFrom, vTo := r.vTo }]
-    | .virt k .inn => do
-      let rows ← liftR (match k with
-        | .subject => rangeScan .spo c.view [x]
-        | .object => rangeScan .osp c.view [x]
-        | .predicate => rangeScan .pos c.view [x])
-      pure (rows.map fun r => { hop := { eid := r.eid, pred := virtualPredId k, dir := .inn, kind := k.code },
-                                to := r.eid, vFrom := r.vFrom, vTo := r.vTo })
+  let nbs ← fetchRaw c lc x
   nbs.filterM fun nb => inScope c nb.hop.eid
 
 /-- The sorted transitions of one search state: each neighbour with its target state. -/
@@ -271,6 +275,38 @@ def better (a : Option Int) (b : Option Int) : Bool :=
 
 def tmin (a b : Option Int) : Option Int := if better b a then b else a
 
+/-- Records the label `at_` of `(n, t)` in the next layer, replacing an earlier entry of the pair. -/
+def upsertNext (next : List (Int64 × Nat × Option Int)) (n : Int64) (t : Nat) (at_ : Option Int) :
+    List (Int64 × Nat × Option Int) :=
+  match next.findIdx? (fun e => e.1 == n && e.2.1 == t) with
+  | some i => next.set i (n, t, at_)
+  | none => next ++ [(n, t, at_)]
+
+/-- Records an arrival at an accepting state of `n`: the first depth, the earliest arrival. -/
+def recordEnd (ends : Std.HashMap Int64 (Nat × Option Int)) (n : Int64) (depth : Nat) (at_ : Option Int) :
+    Std.HashMap Int64 (Nat × Option Int) :=
+  match ends.get? n with
+  | some (h, a) => ends.insert n (h, tmin a at_)
+  | none => ends.insert n (depth + 1, at_)
+
+/-- One transition of a time-respecting REACH layer: a strictly earlier label is recorded,
+charged, scheduled for the next layer and, at an accepting state, recorded as an arrival. -/
+def reachTimedStep (c : Ctx) (depth : Nat)
+    (acc : List (Int64 × Nat × Option Int) × Std.HashMap (Int64 × Nat) (Option Int) ×
+      Std.HashMap Int64 (Nat × Option Int) × Nat)
+    (a : (Nb × Nat) × Option Int) :
+    EvM (List (Int64 × Nat × Option Int) × Std.HashMap (Int64 × Nat) (Option Int) ×
+      Std.HashMap Int64 (Nat × Option Int) × Nat) := do
+  let (next, best, ends, used) := acc
+  let ((nb, t), tau) := a
+  match stepTime nb tau with
+  | none => return acc
+  | some at_ =>
+    if (best.get? (nb.to, t)).any (fun b => !better at_ b) then return acc
+    let used ← charge c used 1
+    return (upsertNext next nb.to t at_, best.insert (nb.to, t) at_,
+      if c.dfa.accepts t then recordEnd ends nb.to depth at_ else ends, used)
+
 def reachTimedLoop (c : Ctx) :
     Nat → List (Int64 × Nat × Option Int) → Std.HashMap (Int64 × Nat) (Option Int) →
       Std.HashMap Int64 (Nat × Option Int) → Nat → Nat → EvM (Std.HashMap Int64 (Nat × Option Int))
@@ -278,25 +314,7 @@ def reachTimedLoop (c : Ctx) :
   | fuel + 1, frontier, best, ends, depth, used => do
     if frontier.isEmpty || !c.depthOk depth then return ends
     let exps ← frontier.mapM fun (n, q, tau) => do return ((← expandOne c n q).map (·, tau))
-    let (next, best, ends, used) ← exps.flatten.foldlM (fun
-        (acc : List (Int64 × Nat × Option Int) × Std.HashMap (Int64 × Nat) (Option Int) × Std.HashMap Int64 (Nat × Option Int) × Nat)
-        ((nb, t), tau) => do
-      let (next, best, ends, used) := acc
-      match stepTime nb tau with
-      | none => return acc
-      | some at_ =>
-        if (best.get? (nb.to, t)).any (fun b => !better at_ b) then return acc
-        let used ← charge c used 1
-        let best := best.insert (nb.to, t) at_
-        let next := match next.findIdx? (fun e => e.1 == nb.to && e.2.1 == t) with
-          | some i => next.set i (nb.to, t, at_)
-          | none => next ++ [(nb.to, t, at_)]
-        let ends := if c.dfa.accepts t then
-            match ends.get? nb.to with
-            | some (h, a) => ends.insert nb.to (h, tmin a at_)
-            | none => ends.insert nb.to (depth + 1, at_)
-          else ends
-        return (next, best, ends, used)) ([], best, ends, used)
+    let (next, best, ends, used) ← exps.flatten.foldlM (reachTimedStep c depth) ([], best, ends, used)
     reachTimedLoop c fuel next best ends (depth + 1) used
 
 def reachTimed (c : Ctx) (start : Int64) (tau0 : Option Int) : EvM (List PathRow) := do
@@ -338,23 +356,37 @@ def rowOf (c : Ctx) (start : Int64) (steps : List (Hop × Int64)) (tau : Option 
     path := some { nodes := start :: steps.map (·.2), hops := steps.map (·.1) },
     arrival := arrivalOf c tau }
 
+/-- The time after a hop in a search (`none`: not allowed): untimed searches keep the time. -/
+def Ctx.tstep (c : Ctx) (nb : Nb) (tau : Option Int) : Option (Option Int) :=
+  match c.timed with
+  | none => some tau
+  | some _ => stepTime nb tau
+
+/-- One trail step from arena node `i` (whose node is `n`): a new arena node unless the hop is
+not allowed at `n`'s time or its identity is already on the trail. -/
+def trailStep (c : Ctx) (i : Nat) (n : TNode) (acc : Array TNode × Nat) (a : Nb × Nat) :
+    EvM (Array TNode × Nat) := do
+  let (arena, used) := acc
+  let (nb, t) := a
+  match c.tstep nb n.tau with
+  | none => return acc
+  | some tau =>
+    if onChain arena nb.hop.identity (arena.size + 1) (some i) then return acc
+    let used ← charge c used 1
+    return (arena.push { node := nb.to, state := t, parent := some i, hop := some nb.hop, tau }, used)
+
+/-- Extends the arena by the trail steps of arena node `i`. -/
+def trailExtend (c : Ctx) (acc : Array TNode × Nat) (i : Nat) : EvM (Array TNode × Nat) := do
+  let n := acc.1.getD i default
+  let nbs ← expandOne c n.node n.state
+  nbs.foldlM (trailStep c i n) acc
+
 def trailLoop (c : Ctx) (start : Int64) :
     Nat → Array TNode → Nat → Nat → Nat → Nat → List PathRow → EvM (List PathRow)
   | 0, _, _, _, _, _, rows => return rows
   | fuel + 1, arena, lo, hi, depth, used, rows => do
     if lo ≥ hi || !c.depthOk depth then return rows
-    let mut arena := arena
-    let mut used := used
-    for i in [lo:hi] do
-      let n := arena.getD i default
-      for (nb, t) in ← expandOne c n.node n.state do
-        let tau? := match c.timed with
-          | none => some n.tau
-          | some _ => stepTime nb n.tau
-        if let some tau := tau? then
-          if !onChain arena nb.hop.identity (arena.size + 1) (some i) then
-            used ← charge c used 1
-            arena := arena.push { node := nb.to, state := t, parent := some i, hop := some nb.hop, tau }
+    let (arena, used) ← (List.range' lo (hi - lo)).foldlM (trailExtend c) (arena, used)
     let newRows := (List.range (arena.size - hi)).filterMap fun k =>
       let n := arena.getD (hi + k) default
       if c.dfa.accepts n.state then some (rowOf c start (stepsOf arena (arena.size + 1) (some (hi + k)) []) n.tau)
@@ -393,48 +425,94 @@ def keysLe : List (Int × Nat × Nat) → List (Int × Nat × Nat) → Bool
   | _ :: _, [] => false
   | a :: as, b :: bs => if keyLt a b then true else if keyLt b a then false else keysLe as bs
 
+/-- The accumulator of one shortest-path layer. -/
+structure SAcc where
+  arena : Array SNode
+  index : Std.HashMap (Int64 × Nat) Nat
+  used : Nat
+  next : List Nat
+  /-- Timed searches key the layer by `(node, state, time)`; untimed by `(node, state)`. -/
+  tindex : Std.HashMap (Int64 × Nat × Option Int) Nat
+
+/-- One transition from the layer node `parent` (whose arena node is `pn`): a new node of the
+next layer, or one more predecessor of a node of the next layer (ALL_SHORTEST). -/
+def shortestStep (c : Ctx) (all : Bool) (best : Std.HashMap (Int64 × Nat) (Option Int)) (depth parent : Nat)
+    (pn : SNode) (acc : SAcc) (a : Nb × Nat) : EvM SAcc := do
+  let (nb, t) := a
+  match c.timed with
+  | none =>
+    match acc.index.get? (nb.to, t) with
+    | none =>
+      let used ← charge c acc.used 1
+      return { acc with used, index := acc.index.insert (nb.to, t) acc.arena.size,
+                        next := acc.next ++ [acc.arena.size],
+                        arena := acc.arena.push { node := nb.to, state := t, depth := depth + 1, tau := none,
+                                                  preds := [(parent, nb.hop)] } }
+    | some j =>
+      if all && (acc.arena.getD j default).depth == depth + 1 then
+        let used ← charge c acc.used 1
+        return { acc with used, arena := acc.arena.modify j fun n => { n with preds := n.preds ++ [(parent, nb.hop)] } }
+      else return acc
+  | some _ =>
+    match stepTime nb pn.tau with
+    | none => return acc
+    | some at_ =>
+      if !(best.get? (nb.to, t)).any (fun b => !better at_ b) then
+        match acc.tindex.get? (nb.to, t, at_) with
+        | none =>
+          let used ← charge c acc.used 1
+          return { acc with used, tindex := acc.tindex.insert (nb.to, t, at_) acc.arena.size,
+                            next := acc.next ++ [acc.arena.size],
+                            arena := acc.arena.push { node := nb.to, state := t, depth := depth + 1, tau := at_,
+                                                      preds := [(parent, nb.hop)] } }
+        | some j =>
+          if all then
+            let used ← charge c acc.used 1
+            return { acc with used, arena := acc.arena.modify j fun n => { n with preds := n.preds ++ [(parent, nb.hop)] } }
+          else return acc
+      else return acc
+
+/-- The transitions of one layer node. -/
+def shortestExpand (c : Ctx) (all : Bool) (best : Std.HashMap (Int64 × Nat) (Option Int)) (depth : Nat)
+    (acc : SAcc) (parent : Nat) : EvM SAcc := do
+  let pn := acc.arena.getD parent default
+  let nbs ← expandOne c pn.node pn.state
+  nbs.foldlM (shortestStep c all best depth parent pn) acc
+
+/-- ALL_SHORTEST: every path to each target, each charged, sorted by hop keys. -/
+def collectAll (c : Ctx) (arena : Array SNode) (depth : Nat) (targets : List Nat) (used : Nat) :
+    EvM (List (List (Hop × Int64) × Option Int) × Nat) := do
+  let (found, used) ← targets.foldlM (fun (acc : List (List (Hop × Int64) × Option Int) × Nat) i => do
+    let n := arena.getD i default
+    (pathsTo arena (depth + 2) i).foldlM (fun (acc : List (List (Hop × Int64) × Option Int) × Nat) p => do
+      let used ← charge c acc.2 1
+      return (acc.1 ++ [(p, n.tau)], used)) acc) ([], used)
+  return (found.mergeSort fun a b => keysLe (hopKeys a.1) (hopKeys b.1), used)
+
+/-- One target of ANY_SHORTEST: its first path, unless its end was already collected. -/
+def anyStep (arena : Array SNode) (depth : Nat) (acc : List (List (Hop × Int64) × Option Int) × Std.HashSet Int64)
+    (i : Nat) : List (List (Hop × Int64) × Option Int) × Std.HashSet Int64 :=
+  let n := arena.getD i default
+  if acc.2.contains n.node then acc
+  else
+    let seen := acc.2.insert n.node
+    match pathsTo arena (depth + 2) i with
+    | p :: _ => (acc.1 ++ [(p, n.tau)], seen)
+    | [] => (acc.1, seen)
+
+/-- ANY_SHORTEST: the first path to the first target of each end. -/
+def collectAny (arena : Array SNode) (depth : Nat) (targets : List Nat) : List (List (Hop × Int64) × Option Int) :=
+  (targets.foldl (anyStep arena depth) ([], ∅)).1
+
 def shortestLoop (c : Ctx) (start : Int64) (all : Bool) :
     Nat → Array SNode → Std.HashMap (Int64 × Nat) Nat → Std.HashMap (Int64 × Nat) (Option Int) →
       Std.HashSet Int64 → List Nat → Nat → Nat → List PathRow → EvM (List PathRow)
   | 0, _, _, _, _, _, _, _, rows => return rows
   | fuel + 1, arena, index, best, emitted, layer, depth, used, rows => do
     if layer.isEmpty || !c.depthOk depth then return rows
-    let mut arena := arena
-    let mut index := index
-    let mut used := used
-    let mut next : List Nat := []
-    -- timed searches key the layer by (node, state, time); untimed by (node, state)
-    let mut tindex : Std.HashMap (Int64 × Nat × Option Int) Nat := ∅
-    for parent in layer do
-      let pn := arena.getD parent default
-      for (nb, t) in ← expandOne c pn.node pn.state do
-        match c.timed with
-        | none =>
-          match index.get? (nb.to, t) with
-          | none =>
-            used ← charge c used 1
-            index := index.insert (nb.to, t) arena.size
-            next := next ++ [arena.size]
-            arena := arena.push { node := nb.to, state := t, depth := depth + 1, tau := none, preds := [(parent, nb.hop)] }
-          | some j =>
-            if all && (arena.getD j default).depth == depth + 1 then
-              used ← charge c used 1
-              arena := arena.modify j fun n => { n with preds := n.preds ++ [(parent, nb.hop)] }
-        | some _ =>
-          match stepTime nb pn.tau with
-          | none => pure ()
-          | some at_ =>
-            if !(best.get? (nb.to, t)).any (fun b => !better at_ b) then
-              match tindex.get? (nb.to, t, at_) with
-              | none =>
-                used ← charge c used 1
-                tindex := tindex.insert (nb.to, t, at_) arena.size
-                next := next ++ [arena.size]
-                arena := arena.push { node := nb.to, state := t, depth := depth + 1, tau := at_, preds := [(parent, nb.hop)] }
-              | some j =>
-                if all then
-                  used ← charge c used 1
-                  arena := arena.modify j fun n => { n with preds := n.preds ++ [(parent, nb.hop)] }
+    let acc ← layer.foldlM (shortestExpand c all best depth) { arena, index, used, next := [], tindex := ∅ }
+    let arena := acc.arena
+    let next := acc.next
     let best := next.foldl (fun b i =>
       let n := arena.getD i default
       match b.get? (n.node, n.state) with
@@ -443,26 +521,11 @@ def shortestLoop (c : Ctx) (start : Int64) (all : Bool) :
     let targets := next.filter fun i =>
       let n := arena.getD i default
       c.dfa.accepts n.state && !emitted.contains n.node
-    let mut found : List (List (Hop × Int64) × Option Int) := []
-    if all then
-      for i in targets do
-        let n := arena.getD i default
-        for p in pathsTo arena (depth + 2) i do
-          used ← charge c used 1
-          found := found ++ [(p, n.tau)]
-      found := found.mergeSort fun a b => keysLe (hopKeys a.1) (hopKeys b.1)
-    else
-      let mut seen : Std.HashSet Int64 := ∅
-      for i in targets do
-        let n := arena.getD i default
-        if !seen.contains n.node then
-          seen := seen.insert n.node
-          match pathsTo arena (depth + 2) i with
-          | p :: _ => found := found ++ [(p, n.tau)]
-          | [] => pure ()
+    let (found, used) ← if all then collectAll c arena depth targets acc.used
+      else pure (collectAny arena depth targets, acc.used)
     let emitted := targets.foldl (fun e i => e.insert (arena.getD i default).node) emitted
     let rows := rows ++ found.map fun (p, tau) => rowOf c start p tau
-    shortestLoop c start all fuel arena index best emitted next (depth + 1) used rows
+    shortestLoop c start all fuel arena acc.index best emitted next (depth + 1) used rows
 
 def shortest (c : Ctx) (start : Int64) (all : Bool) : EvM (List PathRow) := do
   let tau0 := c.timed.getD none

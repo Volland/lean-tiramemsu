@@ -94,6 +94,16 @@ Breadth-first search over `(node, DFA state)` layers with explicit fuel; every n
 
 REACH emits each end once with its minimal hop count; TRAIL keeps an arena of partial trails and refuses a repeated hop identity; the shortest modes keep layered predecessors. Rows come in non-decreasing hops, then by hop key (eid, kind, direction).
 
+Each layer is a fold of a named step (`trailStep`, `reachTimedStep`, `shortestStep`, `anyStep`) over the layer's transitions, and the class neighbours are `fetchRaw` filtered by the graph scope, so the proofs of [[query#Paths#Path Specification]] can state one invariant per step.
+
+### Path Specification
+
+The proofs state path results against a declarative specification (`TiramemsuProofs/Path/Spec`) written without automata or search: `lang e`, walks over a hop relation, and the hops of a store view.
+
+`lang e` is the set of hop-letter words of an expression; `IsWalk R x w y` is a walk of a hop relation `R` (each step a letter and the neighbour reached); `ViewHop` is the hop relation of a store view (stored hops both ways over visible statements, virtual hops between a statement and its parts); trails, graph scoping (`HopRel.scoped`), hop-rule threading (`walkTau`) and reversal are defined on walks.
+
+The search theorems assume `HopsExact`: the hop layer of a search lists exactly the hops of `R`, routed by the automaton's transition function (and `HopsNodup`, each hop once, for path-returning modes). That `fetchClass` over the sorted range scans lists exactly `ViewHop` is not yet proven.
+
 ### Path Patterns
 
 A path pattern runs laterally inside its join: from the start when the outer row or a constant binds it, else from the end with the inverse expression (rows reversed), else `Unsupported`.

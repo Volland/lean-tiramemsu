@@ -1,0 +1,69 @@
+$ tiramemsu a.db assert v:alice v:worksAt v:acme
+{"eid":"urn:tiramemsu:stmt:1","new":true,"t":1}
+exit 0
+$ tiramemsu a.db assert stmt:1 v:confidence 0.8 --valid-from 2024-01-01
+{"eid":"urn:tiramemsu:stmt:2","new":true,"t":2}
+exit 0
+$ tiramemsu a.db assert v:bob v:knows v:alice
+{"eid":"urn:tiramemsu:stmt:3","new":true,"t":3}
+exit 0
+$ tiramemsu a.db triples --s v:alice
+{"eid":"urn:tiramemsu:stmt:1","o":{"iri":"urn:tiramemsu:v:acme"},"p":{"iri":"urn:tiramemsu:v:worksAt"},"s":{"iri":"urn:tiramemsu:v:alice"},"tAdd":1}
+exit 0
+$ tiramemsu a.db triples --p v:confidence
+{"eid":"urn:tiramemsu:stmt:2","o":{"datatype":"http://www.w3.org/2001/XMLSchema#decimal","lex":"0.8"},"p":{"iri":"urn:tiramemsu:v:confidence"},"s":{"iri":"urn:tiramemsu:stmt:1"},"tAdd":2,"validFrom":1704067200000}
+exit 0
+$ tiramemsu a.db values v:alice v:worksAt
+{"iri":"urn:tiramemsu:v:acme"}
+exit 0
+$ tiramemsu a.db dependents stmt:1
+"urn:tiramemsu:stmt:1"
+"urn:tiramemsu:stmt:2"
+exit 0
+$ tiramemsu a.db path v:bob knows/worksAt --mode TRAIL
+{"end":{"iri":"urn:tiramemsu:v:acme"},"hops":2,"path":{"hops":[{"dir":"out","eid":"urn:tiramemsu:stmt:3","p":{"iri":"urn:tiramemsu:v:knows"}},{"dir":"out","eid":"urn:tiramemsu:stmt:1","p":{"iri":"urn:tiramemsu:v:worksAt"}}],"nodes":[{"iri":"urn:tiramemsu:v:bob"},{"iri":"urn:tiramemsu:v:alice"},{"iri":"urn:tiramemsu:v:acme"}]},"start":{"iri":"urn:tiramemsu:v:bob"}}
+exit 0
+$ tiramemsu a.db path v:bob knows+ --max-hops 3
+{"end":{"iri":"urn:tiramemsu:v:alice"},"hops":1,"start":{"iri":"urn:tiramemsu:v:bob"}}
+exit 0
+$ tiramemsu a.db path v:bob knows/(
+{"kind":"Parse","message":"Path parse error at 7..7: unexpected end of path"}
+exit 1
+$ tiramemsu a.db path
+tiramemsu: unknown command or arguments: path
+usage: tiramemsu <db> <command> [args]
+  info | assert s p o [--valid-from t] [--valid-to t] | retract eid
+  triples [--s t] [--p t] [--o t] | values s key | dependents eid
+  path start expr [--mode m] [--max-hops n] [--graph g]... [--time-respecting[=t]]
+  bundle eid | import-bundle file|-
+  read options: --as-of <t or RFC 3339> | --history | --valid-at <date or date-time>
+       tiramemsu version [--verbose] | tiramemsu driver
+exit 2
+$ tiramemsu a.db path v:bob knows --mode SIMPLE
+{"kind":"Unsupported","message":"unsupported: path mode `SIMPLE`"}
+exit 1
+$ tiramemsu a.db retract stmt:3
+{"cascade":["urn:tiramemsu:stmt:3"],"retracted":true,"t":4}
+exit 0
+$ tiramemsu a.db triples --history
+{"eid":"urn:tiramemsu:stmt:1","o":{"iri":"urn:tiramemsu:v:acme"},"p":{"iri":"urn:tiramemsu:v:worksAt"},"s":{"iri":"urn:tiramemsu:v:alice"},"tAdd":1}
+{"eid":"urn:tiramemsu:stmt:2","o":{"datatype":"http://www.w3.org/2001/XMLSchema#decimal","lex":"0.8"},"p":{"iri":"urn:tiramemsu:v:confidence"},"s":{"iri":"urn:tiramemsu:stmt:1"},"tAdd":2,"validFrom":1704067200000}
+{"eid":"urn:tiramemsu:stmt:3","o":{"iri":"urn:tiramemsu:v:alice"},"p":{"iri":"urn:tiramemsu:v:knows"},"s":{"iri":"urn:tiramemsu:v:bob"},"tAdd":3,"tRet":4}
+exit 0
+$ tiramemsu a.db triples --as-of 2
+{"eid":"urn:tiramemsu:stmt:1","o":{"iri":"urn:tiramemsu:v:acme"},"p":{"iri":"urn:tiramemsu:v:worksAt"},"s":{"iri":"urn:tiramemsu:v:alice"},"tAdd":1}
+{"eid":"urn:tiramemsu:stmt:2","o":{"datatype":"http://www.w3.org/2001/XMLSchema#decimal","lex":"0.8"},"p":{"iri":"urn:tiramemsu:v:confidence"},"s":{"iri":"urn:tiramemsu:stmt:1"},"tAdd":2,"validFrom":1704067200000}
+exit 0
+$ tiramemsu a.db bundle stmt:1
+{"format":"tiramemsu-bundle/1","root":0,"statements":[{"id":0,"o":{"iri":"urn:tiramemsu:v:acme"},"p":"urn:tiramemsu:v:worksAt","s":{"iri":"urn:tiramemsu:v:alice"}},{"id":1,"o":{"datatype":"http://www.w3.org/2001/XMLSchema#decimal","lex":"0.8"},"p":"urn:tiramemsu:v:confidence","s":{"ref":0},"validFrom":1704067200000}]}
+exit 0
+$ tiramemsu a.db bundle stmt:1 | tiramemsu b.db import-bundle -
+{"root":"urn:tiramemsu:stmt:1","statements":[{"eid":"urn:tiramemsu:stmt:1","id":0,"new":true},{"eid":"urn:tiramemsu:stmt:2","id":1,"new":true}]}
+exit 0
+$ tiramemsu b.db triples
+{"eid":"urn:tiramemsu:stmt:1","o":{"iri":"urn:tiramemsu:v:acme"},"p":{"iri":"urn:tiramemsu:v:worksAt"},"s":{"iri":"urn:tiramemsu:v:alice"},"tAdd":1}
+{"eid":"urn:tiramemsu:stmt:2","o":{"datatype":"http://www.w3.org/2001/XMLSchema#decimal","lex":"0.8"},"p":{"iri":"urn:tiramemsu:v:confidence"},"s":{"iri":"urn:tiramemsu:stmt:1"},"tAdd":1,"validFrom":1704067200000}
+exit 0
+$ tiramemsu a.db info
+{"format":1,"lastT":4,"live":2,"path":"a.db","statements":3}
+exit 0

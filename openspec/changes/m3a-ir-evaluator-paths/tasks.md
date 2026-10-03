@@ -43,7 +43,7 @@
 
 ## 6. Path expressions and automaton
 
-- [ ] 6.1 Add `Path/Letter` and the declarative language `lang : PathExpr → Set Word` (proofs) plus `Walk` over a store view
+- [x] 6.1 Add `Path/Letter` and the declarative language `lang : PathExpr → Set Word` (proofs) plus `Walk` over a store view — `Letter` lives in `Path/Automaton`; `lang`, `IsWalk` over a hop relation, the store-view relation `ViewHop`, trails, `walkTau`, graph scoping and `HopsExact` in `TiramemsuProofs/Path/Spec`
 - [x] 6.2 Add `Path/Syntax`: SPARQL 1.1 property-path parser with `{m,n}`, CURIEs, `@vocab` names, `Parse` errors with spans, `Unsupported` for negated sets; printer; round-trip property test and Rust test vectors
 - [x] 6.3 Add `Path/Nfa` (inverse pushed down, repetition unrolled, 200 000-state cap) and `Path/Dfa` (subset construction over the refined alphabet, 4 096-state cap → `Unsupported("path expression too complex")`) — implemented as one module `Path/Automaton` compiling by Brzozowski derivatives (same DFA semantics, no intermediate NFA; see design "Path engine")
 - [x] 6.4 Prove DFA language = `lang e` and run uniqueness; prove `lang e.inverse` = reversed, direction-flipped words
@@ -52,24 +52,24 @@
 ## 7. Path search modes
 
 - [x] 7.1 Add `Path/Search/Reach` (BFS over `(node, state)` with fuel `min(maxHops, N·Q)`, rows by hops then raw id) — fuel implemented as `path_max_states + 1` layers plus the `maxHops` cut (see design "Path engine")
-- [ ] 7.2 Prove REACH = ends of matching walks within the bound, minimal hops, each once; prove the fuel bound sufficient
-- [ ] 7.3 Add `Path/Search/Trail` (arena, identity check, fuel `min(maxHops, I)`, hop-key order) and prove it equals the matching trails, each once, with sufficient fuel
-- [ ] 7.4 Add `Path/Search/Shortest` (ANY and ALL, layered predecessors, hop-key order) and prove minimality, hop-key-least choice, and exactly-once enumeration
+- [x] 7.2 Prove REACH = ends of matching walks within the bound, minimal hops, each once; prove the fuel bound sufficient — `reach_spec`, `reachLoop_fuel` (`Path/Reach`), under `HopsExact`
+- [x] 7.3 Add `Path/Search/Trail` (arena, identity check, fuel `min(maxHops, I)`, hop-key order) and prove it equals the matching trails, each once, with sufficient fuel — `trail_spec`, `trailLoop_fuel` (`Path/Trail`; loop restructured into `trailStep`/`trailExtend` folds, behaviour unchanged), under `HopsExact` and `HopsNodup`; row order not proven
+- [x] 7.4 Add `Path/Search/Shortest` (ANY and ALL, layered predecessors, hop-key order) and prove minimality, hop-key-least choice, and exactly-once enumeration — `allShortest_spec` (every minimal matching walk, each path once), `anyShortest_spec` (one minimal walk per end, ends once), `anyShortest_least` (hop-key-least among the minimal walks), `shortestLoop_fuel` (`Path/Shortest`, `Path/ShortestKey`; loop restructured into `shortestStep`/`shortestExpand`/`collectAll`/`anyStep`, behaviour unchanged); not time-respecting; under `HopsExact`, `HopsNodup`, `HopFun`, `KeyFun` (the last two proven for `ViewHop` on well-formed states); row order not proven
 - [x] 7.5 Add the `pathMaxStates` guard (`PathLimitExceeded`, no truncation) and its golden test
 - [x] 7.6 Brute-force walk enumerator over small graphs as a test oracle for all modes
 
 ## 8. Graph-scoped and time-respecting paths
 
 - [x] 8.1 Add graph-set filtering of hops (membership visible in the hop's view; virtual hops check the stepped statement; zero-hop rows independent of G)
-- [ ] 8.2 Prove graph-scoped rows = unscoped rows whose hop statements all have a visible membership in G
+- [x] 8.2 Prove graph-scoped rows = unscoped rows whose hop statements all have a visible membership in G — `trail_graph_members`/`trail_graph` (TRAIL rows: exactly the unscoped rows whose every hop statement has a visible membership), `reach_graph` (REACH: ends of walks all of whose hops are in scope), via `hopsExact_scoped` (the scoped hop layer is the unscoped one filtered by `inScope`) and `scopeOK_iff` (`Path/Graph`; `fetchClass` split into `fetchRaw` + scope filter, behaviour unchanged)
 - [x] 8.3 Add `Path/Search/Timed`: hop rule, label-correcting REACH with earliest arrival, timed TRAIL, Pareto-pruned shortest modes, arrival reporting
-- [ ] 8.4 Prove hop-rule monotonicity, REACH earliest arrival, the timed search bound `N·Q·(card T + 1)`, and antitonicity in the start instant
+- [x] 8.4 Prove hop-rule monotonicity, REACH earliest arrival, the timed search bound `N·Q·(card T + 1)`, and antitonicity in the start instant — `stepTime_mono`/`timeWalk_mono`, `reachTimed_spec` (each end once, minimal hops, earliest arrival within the bound), `reachTimedLoop_bound`/`reachTimed_bound` (potential argument: at most `card U · card Tv` charged labels, so `card U · card Tv + 1` layers suffice; `U` = nodes × states, `Tv` = start instant and start times), `reachTimed_antitone`, `reachTimedLoop_fuel` (`Path/Timed`, `Path/TimedBound`; `reachTimedStep`/`upsertNext`/`recordEnd` named, behaviour unchanged); time-respecting TRAIL is covered by `trail_spec`; the time-respecting shortest modes are not proven
 - [x] 8.5 Tests for every `path-evaluation` scenario, and timed results against brute-force enumeration
 
 ## 9. Path patterns in queries
 
 - [x] 9.1 Add `Path/Engine` and wire `PathPattern` into `denote` and `Exec/Eval`: start-bound or end-bound with the inverse expression, `Unsupported` without a bound endpoint, `bindPath`, graph selectors `Set` and `Var`
-- [ ] 9.2 Prove evaluation from the end equals the reversed rows from the start
+- [ ] 9.2 Prove evaluation from the end equals the reversed rows from the start — proven for REACH (`reach_fromEnd`), TRAIL (`trail_fromEnd`) and ALL_SHORTEST (`allShortest_fromEnd`) over any reversible hop relation (`viewHop_symm`); open for ANY_SHORTEST, where it is false as stated: each search breaks ties among minimal paths by hop keys read from its own start, so only "a minimal path per start, each start once" holds (`anyShortest_fromEnd`); the engine-level `evalPath` wiring (context built by `run`) is not restated
 - [x] 9.3 Extend 4.5 to trees containing path patterns
 
 ## 10. Query provenance
