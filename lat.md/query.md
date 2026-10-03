@@ -116,6 +116,8 @@ On request, every result row carries the ascending, duplicate-free eids of the s
 
 The provenance evaluator computes its rows with the plain bag operators and threads citations beside them: a match cites its statement (under `SetOfTriples` every visible eid of the matched content), joins and left joins unite, unions keep the branch's, filters and `EXISTS` add nothing, paths in `TRAIL` and the shortest modes cite their hops, a distinct projection and an aggregate unite their merged rows' citations.
 
+It reads stored patterns through `candidateScan` (the evaluator's candidates before adjacent deduplication) and path patterns through the engine's `evalPathW`, which returns each pattern row with the hops and graph scope it came from (`evalPath` keeps the rows), so its rows are exactly the plain ones, zero-hop rows of an unstored endpoint included; the erasure theorem is in [[verification#Proven Query Semantics#Provenance Erasure]].
+
 ## Fact Bundles
 
 A bundle moves a belief with its layers and evidence between databases (`Tiramemsu.Bundle`): exported from any view as a read program, imported as a transaction-body program.

@@ -664,24 +664,21 @@ def setMode (E : Env) (t : TriplePattern) : Bool := E.sem.graphSet == .setOfTrip
 
 /-- The candidates of an outer row: a filter of the visible statements (before adjacent
 deduplication) that keeps every statement with a compatible row. -/
-theorem ev_candidateRows (E : Env) (t : TriplePattern) (a : Row) (m : Missing) (P Q : Schema) :
+theorem ev_candidateScan (E : Env) (t : TriplePattern) (a : Row) (m : Missing) (P Q : Schema) :
     ∃ Cb : List TripleRow, ∃ pred : TripleRow → Bool,
-      ev st (candidateRows E (resolveView st t.view) t a) =
-        .ok (.ok (if setMode E t && t.graph == .any then dedupAdj Cb else Cb)) ∧
+      ev st (candidateScan E (resolveView st t.view) t a) = .ok (.ok Cb) ∧
       Cb.Perm ((visibleRows st (resolveView st t.view)).filter pred) ∧
       (∀ r ∈ visibleRows st (resolveView st t.view), pred r = false →
         ∀ x ∈ sRows st E (resolveView st t.view) t r, compat m P Q a x = false) ∧
       (∃ f : Family, f.maxPrefix = 3 ∧ Cb.Pairwise (fun a b => keyLe f a b = true)) := by
   set v := resolveView st t.view
-  unfold candidateRows
+  unfold candidateScan
   cases hb : t.eid.bind (fun ev => a.get (E.idx ev)) with
   | some val =>
     obtain ⟨ev', he, hval⟩ : ∃ ev', t.eid = some ev' ∧ a.get (E.idx ev') = some val := by
       cases h : t.eid with
       | none => rw [h] at hb; cases hb
       | some ev' => rw [h] at hb; exact ⟨ev', rfl, hb⟩
-    have hset : (setMode E t && t.graph == .any) = false := by simp [setMode, he]
-    simp only [hset, Bool.false_eq_true, ↓reduceIte]
     rw [ev_bind, ev_lookupE]
     simp only
     have hn : ∀ r ∈ visibleRows st v, (lookupId st val == some r.eid) = false →
@@ -734,8 +731,7 @@ theorem ev_candidateRows (E : Env) (t : TriplePattern) (a : Row) (m : Missing) (
       · rfl
       · obtain ⟨o, ho, -⟩ := hall r hr x hx hc
         rw [h0] at ho; cases ho
-    have nil_ok : ev st (pure [] : EvM (List TripleRow)) =
-        .ok (.ok (if setMode E t && t.graph == .any then dedupAdj [] else [])) := by split <;> rfl
+    have nil_ok : ev st (pure [] : EvM (List TripleRow)) = .ok (.ok []) := rfl
     cases hS : posIdP st E a t.s with
     | none =>
       exact ⟨[], fun _ => false, nil_ok, by simp, empty t.s _ hS hs, ⟨.liveSpo, rfl, List.Pairwise.nil⟩⟩
@@ -755,7 +751,7 @@ theorem ev_candidateRows (E : Env) (t : TriplePattern) (a : Row) (m : Missing) (
           simp only
           rcases hI : indexFor os op oo with ⟨ord, pfx⟩
           simp only
-          rw [ev_bind, ev_rangeScan st ord v pfx (by have := indexFor_length os op oo; rw [hI] at this; exact this)]
+          rw [ev_rangeScan st ord v pfx (by have := indexFor_length os op oo; rw [hI] at this; exact this)]
           refine ⟨st.scanList (scanSpec ord v pfx), fun r => optOk os r.s && optOk op r.p && optOk oo r.o, ?_, ?_, ?_, ?_⟩
           · rfl
           · refine (scanList_perm st ord v pfx).trans ?_
@@ -777,6 +773,20 @@ theorem ev_candidateRows (E : Env) (t : TriplePattern) (a : Row) (m : Missing) (
               cases e1; cases e2; cases e3
               simp only [k1, k2, k3, Bool.and_self] at hpred; cases hpred
           · exact ⟨ord.family v, family_max3 ord v, List.pairwise_mergeSort (keyLe_trans _) (keyLe_total _) _⟩
+
+theorem ev_candidateRows (E : Env) (t : TriplePattern) (a : Row) (m : Missing) (P Q : Schema) :
+    ∃ Cb : List TripleRow, ∃ pred : TripleRow → Bool,
+      ev st (candidateRows E (resolveView st t.view) t a) =
+        .ok (.ok (if setMode E t && t.graph == .any then dedupAdj Cb else Cb)) ∧
+      Cb.Perm ((visibleRows st (resolveView st t.view)).filter pred) ∧
+      (∀ r ∈ visibleRows st (resolveView st t.view), pred r = false →
+        ∀ x ∈ sRows st E (resolveView st t.view) t r, compat m P Q a x = false) ∧
+      (∃ f : Family, f.maxPrefix = 3 ∧ Cb.Pairwise (fun a b => keyLe f a b = true)) := by
+  obtain ⟨Cb, pred, hev, h2, h3, h4⟩ := ev_candidateScan hB E t a m P Q
+  refine ⟨Cb, pred, ?_, h2, h3, h4⟩
+  unfold candidateRows
+  rw [ev_bind, hev]
+  rfl
 
 /-- The evaluator's rows of one statement, as a function. -/
 def gOf (st : ModelState) (E : Env) (v : Store.View) (t : TriplePattern) (r : TripleRow) : List Row :=

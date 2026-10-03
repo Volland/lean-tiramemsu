@@ -945,4 +945,45 @@ theorem anyShortest_fromEnd {st : ModelState} {c' : Ctx} {R : HopRel} {y : Int64
     have : (PathRow.start ∘ PathRow.flip) = PathRow.end := rfl
     rw [this]; exact h3
 
+/-- path-evaluation "Endpoint binding" (ANY_SHORTEST): with a reversible hop relation, the
+search from `x` for `e` has a row into `y` exactly when the search from `y` for `^e` (same hop
+bound) has one from `x` after reversal, and any two such rows join the same endpoints with the
+same number of hops — each a shortest matching walk. The chosen paths may differ (ties broken by
+each search's own hop keys). -/
+theorem anyShortest_fromEnd_len {st : ModelState} {c c' : Ctx} {R : HopRel} {x y : Int64} {e : PathExpr}
+    (hS : R.Symm) (hx : HopsExact st c R) (hn : HopsNodup st c) (hx' : HopsExact st c' R)
+    (hn' : HopsNodup st c') (hF : HopFun R) (hT : c.timed = none) (hT' : c'.timed = none)
+    (hd : buildDfa (toRE false e) = .ok c.dfa) (hd' : buildDfa (toRE false (.inv e)) = .ok c'.dfa)
+    (hb : c'.maxHops = c.maxHops) {rowsS rowsE : List PathRow}
+    (hs : ev st (shortest c x false) = .ok (.ok rowsS)) (he : ev st (shortest c' y false) = .ok (.ok rowsE)) :
+    ((∃ r ∈ rowsS, r.end = y) ↔ (∃ r ∈ rowsE.map PathRow.flip, r.start = x)) ∧
+    (∀ r ∈ rowsS, r.end = y → ∀ r' ∈ rowsE.map PathRow.flip, r'.start = x →
+      r.start = r'.start ∧ r.end = r'.end ∧ r.hops = r'.hops) := by
+  obtain ⟨h1, h2, -⟩ := anyShortest_spec hx hn hF hT hd hs
+  obtain ⟨g1, g2, -⟩ := anyShortest_fromEnd hS hx' hn' hF hT' hd' he
+  have side : ∀ r ∈ rowsS, r.end = y → ∃ w, Shortest R e x y w ∧ Within c.maxHops w.length ∧
+      r = walkRow c x w none := by
+    intro r hr hend
+    obtain ⟨y0, w, hw, hwb, rfl⟩ := h1 r hr
+    have hy : y0 = y := by rw [← hend, walkRow_eq hw.1]
+    subst hy; exact ⟨w, hw, hwb, rfl⟩
+  have side' : ∀ r ∈ rowsE.map PathRow.flip, r.start = x → ∃ w, Shortest R e x y w ∧
+      Within c'.maxHops w.length ∧ r = walkRow c' x w none := by
+    intro r hr hst
+    obtain ⟨x0, w, hw, hwb, rfl⟩ := g1 r hr
+    have hx0 : x0 = x := by rw [← hst, walkRow_eq hw.1]
+    subst hx0; exact ⟨w, hw, hwb, rfl⟩
+  refine ⟨⟨fun ⟨r, hr, hend⟩ => ?_, fun ⟨r, hr, hst⟩ => ?_⟩, fun r hr hend r' hr' hst => ?_⟩
+  · obtain ⟨w, hw, hwb, -⟩ := side r hr hend
+    exact g2 x w hw.1 hw.2.1 (by rw [hb]; exact hwb)
+  · obtain ⟨w, hw, hwb, -⟩ := side' r hr hst
+    exact h2 y w hw.1 hw.2.1 (by rw [← hb]; exact hwb)
+  · obtain ⟨w, hw, -, rfl⟩ := side r hr hend
+    obtain ⟨w', hw', -, rfl⟩ := side' r' hr' hst
+    rw [walkRow_eq hw.1, walkRow_eq hw'.1]
+    have := hw.2.2 w' hw'.1 hw'.2.1
+    have := hw'.2.2 w hw.1 hw.2.1
+    simp only [true_and]
+    omega
+
 end Tiramemsu.Path

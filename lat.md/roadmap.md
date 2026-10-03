@@ -44,3 +44,6 @@ M0 (`m0-lean-foundation`) is implemented: the Lake project and pins, the policy 
 M1 (`m1-verified-codec`) is implemented: the proven codec, the term dictionary model and its SQLite refinement, storage format 1 and file interchange with Rust ([[codec]]). The codec benchmark is report-only; double printing is far slower than Rust and will need a faster algorithm under `@[csimp]` before the M6 gate.
 
 M2 (`m2-verified-store`) is implemented: the store engine ([[engine]]) with its Tier 1 theorems ([[verification#Proven Store State Machine]]), the shell with the writer, reader pool and clocks, and the differential store oracle. The write benchmarks are report-only.
+
+M3a (`m3a-ir-evaluator-paths`) is implemented except three Tier 2 proofs: the IR and its reference semantics, the index nested-loop evaluator (proven equal to the reference), the path engine (searches proven against the walk specification), provenance (erasure proven), bundles, the Lean API and the CLI. Open: provenance soundness and sufficiency (task 10.3) and the bundle round trip and re-import (11.3, 11.4), so the change is not ready to archive; see [[verification#Proven Query Semantics]].
+

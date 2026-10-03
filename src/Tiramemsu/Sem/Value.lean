@@ -152,12 +152,19 @@ error (`none`). -/
 def cmpOrder (a b : Value) : Option Ordering :=
   if kindRank a != kindRank b then none else some (cmpBytes (sortKey a) (sortKey b))
 
+/-- An allocated id: node, blank node, statement or transaction. -/
+def isIdV : Value → Bool
+  | .node _ | .bnode _ | .stmt _ | .tx _ => true
+  | _ => false
+
 /-- Value equality: numbers by value, date-times by instant, other typed literals by term
-identity; values of different classes are unequal. -/
+identity; values of different classes are unequal. Ids compare exactly: their sort keys agree
+with Rust on every 64-bit id but alias beyond `2^64` (Rust ids are `u64`). -/
 def valueEq (a b : Value) : Bool :=
   match a, b with
   | .typed .., .typed .. => a == b
-  | _, _ => kindRank a == kindRank b && cmpBytes (sortKey a) (sortKey b) == .eq
+  | _, _ => if isIdV a && isIdV b then a == b
+    else kindRank a == kindRank b && cmpBytes (sortKey a) (sortKey b) == .eq
 
 /-! ## Numbers -/
 

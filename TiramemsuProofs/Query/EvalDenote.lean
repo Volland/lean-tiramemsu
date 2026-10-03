@@ -4,8 +4,9 @@ bag of every validated query (the reference list under a root `OrderLimit`), for
 Soundness direction: whenever `denote` returns a bag, the evaluator returns a permutation of it.
 Hypotheses: the id bridge on the model state (`IdBridge`), the evaluator's path engine agrees
 with the reference path semantics row by row (`PathSim`, true by construction for the path
-engine, see `pathSim_engine`), the constants of the query's equalities compare by identity
-(`IdEq`), and no stored pattern binds two eid columns of one match group (`isoLocal`).
+engine, see `pathSim_engine`), and no stored pattern binds two eid columns of one match group
+(`isoLocal`). Constants of pushed equalities need no hypothesis: `identityConst?` only accepts
+constants that compare by identity (`identityConst_idEq`).
 -/
 import TiramemsuProofs.Query.JoinCore
 import TiramemsuProofs.Query.OrderLimit
@@ -728,17 +729,9 @@ theorem isoFilter_tpBag {st : ModelState} {E : Env} {t : TriplePattern} (hi : is
 
 /-! ## Conditions on the query -/
 
-/-- A constant whose equality pushes into a key prefix compares by identity. -/
+/-- A constant whose equality pushes into a key prefix compares by identity (always true:
+`safeConst_all`; kept as a name for the former hypothesis). -/
 def SafeConst (v : Value) : Prop := ∀ k, identityConst? (.const v.canonical) = some k → IdEq k
-
-theorem idEq_false : IdEq (.bool false) := by
-  intro w h
-  unfold valueEq at h
-  cases w <;> simp [kindRank] at h
-  next b =>
-    simp only [sortKey, Value.canonical, cmpBytes_eq_cmpNats, List.map_cons, List.map_nil] at h
-    have := (cmpNats_eq_iff _ _).1 h
-    cases b <;> simp_all
 
 mutual
 
@@ -762,7 +755,7 @@ def OpsOk (iso : List (Nat × Nat)) (vars : List Var) : List IR.Op → Prop
   | x :: xs => OpOk iso vars x ∧ OpsOk iso vars xs
 
 def ExprOk (iso : List (Nat × Nat)) (vars : List Var) : Expr → Prop
-  | .const v => SafeConst v
+  | .const _ => True
   | .cmp _ a b => ExprOk iso vars a ∧ ExprOk iso vars b
   | .sameTerm a b => ExprOk iso vars a ∧ ExprOk iso vars b
   | .arith _ a b => ExprOk iso vars a ∧ ExprOk iso vars b
@@ -822,6 +815,15 @@ theorem prefOk_of {e : RExpr} (h : ∀ a b, e = .cmp .eq a b → ConstOk a ∧ C
       obtain ⟨rfl, rfl⟩ := hp
       exact (h _ _ rfl).1 _ ha
   · cases hp
+
+/-- Every resolved constant that can become a key prefix compares by identity. -/
+theorem constOk_all (e : RExpr) : ConstOk e := fun _ hk => identityConst_idEq hk
+
+/-- Every pushed equality's constant compares by identity. -/
+theorem prefOk_all (e : RExpr) : PrefOk e := prefOk_of fun _ _ _ => ⟨constOk_all _, constOk_all _⟩
+
+/-- Every constant is safe (the former hypothesis on queries is now a theorem). -/
+theorem safeConst_all (v : Value) : SafeConst v := fun _ hk => identityConst_idEq hk
 
 theorem constOk_of {e : RExpr} (h : ∀ k, e ≠ .const k) : ConstOk e := by
   intro k hk; exact absurd (identityConst_some hk) (h k)
@@ -944,14 +946,14 @@ include hB
 
 theorem ev_joinCore_single {E : Env} {pathE : PathE} {pb : PathSem} (hp : PathSim st E pathE pb)
     {t : TriplePattern} (ht : t.p.virtual? = none) (hi : isoLocal E t) (conds : List Pushed)
-    (hok : ∀ c ∈ conds, PushedOk c) (hid : ∀ c ∈ conds, ∀ i k, prefixEq? c.cond = some (i, k) → IdEq k) :
+    (hok : ∀ c ∈ conds, PushedOk c) :
     ∃ R, ev st (joinCore E pathE [.triple t] [none] conds) = .ok (.ok R) ∧
       R.Perm ((tpBag st E t).filter (allHold conds)) := by
   have hs : storedPat? (.triple t) = some t := by simp [storedPat?, ht]
   have := ev_joinCore hB hp [(.triple t, none, some (tpBag st E t))]
     (fun i hi' => by
       simp only [List.mem_singleton] at hi'; subst hi'
-      exact Or.inl ⟨t, hs, rfl, rfl⟩) conds hok hid (L := tpBag st E t) (by
+      exact Or.inl ⟨t, hs, rfl, rfl⟩) conds hok (L := tpBag st E t) (by
       simp only [othD, List.filterMap_cons, Option.map_some, List.filterMap_nil, List.map_cons, List.map_nil,
         List.filterMap_cons, Op.pathPat?]
       simp only [lateralPaths, joinAll_single])

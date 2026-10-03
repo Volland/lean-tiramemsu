@@ -470,12 +470,12 @@ section
 variable {st : ModelState} (hB : IdBridge st)
 include hB
 
-/-- The evaluator's `Join` equals the reference join, filtered by the pushed conjuncts (whose
-constant equalities have identity value equality), whenever the reference join exists. -/
+/-- The evaluator's `Join` equals the reference join, filtered by the pushed conjuncts, whenever
+the reference join exists. -/
 theorem ev_joinCore {E : Env} {pathE : PathE} {pb : PathSem} (hp : PathSim st E pathE pb)
     (ins : List (IR.Op × Option Bag × Option Bag)) (hrel : ∀ i ∈ ins, InRel st E i.1 i.2.1 i.2.2)
     (conds : List Pushed) (hok : ∀ c ∈ conds, PushedOk c)
-    (hid : ∀ c ∈ conds, ∀ i k, prefixEq? c.cond = some (i, k) → IdEq k) {L : Bag}
+    {L : Bag}
     (hL : lateralPaths (E.at st) pb (joinAll E.sem.missing E.n (othD E ins)).1
       (joinAll E.sem.missing E.n (othD E ins)).2 ((ins.map (·.1)).filterMap Op.pathPat?) = .ok L) :
     ∃ R, ev st (joinCore E pathE (ins.map (·.1)) (ins.map (·.2.1)) conds) = .ok (.ok R) ∧
@@ -547,7 +547,7 @@ theorem ev_joinCore {E : Env} {pathE : PathE} {pb : PathSem} (hp : PathSim st E 
     obtain ⟨⟨c, hc, hpe⟩, _, _⟩ := heqs_mem e he
     have hh : c.cond.holds r = true := by
       unfold allHold at hr; exact List.all_eq_true.1 hr c hc
-    rw [prefixEq_holds hpe (hid c hc e.1 e.2 hpe) hh]; simp
+    rw [prefixEq_holds hpe hh]; simp
   have hseed := seed_bag (m := m) (Q := J'.1) (J := J'.2) (eqs := eqs) (g := eqHold eqs)
     (fun e he => (heqs_mem e he).2.2)
     (fun b hb e he => hbindJ b hb e.1 (heqs_mem e he).2.1)

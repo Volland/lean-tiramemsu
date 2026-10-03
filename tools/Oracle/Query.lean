@@ -145,7 +145,11 @@ def opG : Nat → GM Op
         let mode ← pick [PathMode.reach, .trail, .anyShortest, .allShortest]
         let bp ← chance 30
         let pp : PathPattern := { start := .var "a", «end» := .var "w", path := pe, mode, maxHops := some 2, bindPath := if bp then some "pv" else none }
-        return .join [.values ["a"] [[some (.const (vIri (← pick ["alice", "bob", "carol"])))]], .path pp]
+        let who ← pick ["alice", "bob", "carol"]
+        -- bound start, or bound end only (evaluated from the end with the inverse path)
+        if ← chance 50 then
+          return .join [.values ["a"] [[some (.const (vIri who))]], .path pp]
+        return .join [.values ["w"] [[some (.const (vIri who))]], .path pp]
       return .join [← opG d, .values ["a"] [[some (.const (vIri "alice"))], [none]]]
     | _ => return .join [← opG d, ← opG d, ← patternG]
 

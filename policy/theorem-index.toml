@@ -570,6 +570,7 @@ theorems = [
   "Tiramemsu.Path.trail_fromEnd",
   "Tiramemsu.Path.allShortest_fromEnd",
   "Tiramemsu.Path.anyShortest_fromEnd",
+  "Tiramemsu.Path.anyShortest_fromEnd_len",
   "Tiramemsu.Path.matchWalk_inv",
   "Tiramemsu.Path.viewHop_symm",
 ]
@@ -621,6 +622,8 @@ theorems = [
   "Tiramemsu.Exec.ev_inljGo",
   "Tiramemsu.Exec.ev_leftJoinSideways",
   "Tiramemsu.Exec.seed_joinB",
+  "Tiramemsu.Exec.identityConst_idEq",
+  "Tiramemsu.Exec.prefixEq_holds",
   "Tiramemsu.Exec.greedyOrder_perm",
   "Tiramemsu.Exec.joinHash_eq",
 ]
@@ -630,9 +633,28 @@ spec = "query-semantics"
 name = "Reference semantics"
 theorems = [
   "Tiramemsu.Exec.eval_eq_denote",
+  "Tiramemsu.Exec.eval_eq_denote_reachable",
+  "Tiramemsu.Exec.reachable_wf",
+  "Tiramemsu.Exec.idBridge_of_reachable",
   "Tiramemsu.Exec.eval_sim",
   "Tiramemsu.Exec.eval_orderLimit_eq",
   "Tiramemsu.Exec.pathSim_engine",
   "Tiramemsu.Exec.ev_virtualPat",
   "Tiramemsu.Sem.orderLimitB_perm",
+]
+
+[[requirement]]
+spec = "query-provenance"
+name = "Provenance on request"
+theorems = [
+  "Tiramemsu.Prov.evalQueryProv_erase",
+  "Tiramemsu.Prov.evalProv_erase",
+  "Tiramemsu.Prov.ev_triplePatProv",
+  "Tiramemsu.Prov.ev_pathProv_denote",
+  "Tiramemsu.Prov.ev_lateralAB",
+  "Tiramemsu.Prov.joinAllAB_er",
+  "Tiramemsu.Prov.leftJoinAB_er",
+  "Tiramemsu.Prov.projectAB_er",
+  "Tiramemsu.Prov.aggregateAB_er",
+  "Tiramemsu.Prov.orderLimitAB_er",
 ]

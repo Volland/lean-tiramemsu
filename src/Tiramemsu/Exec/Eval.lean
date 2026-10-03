@@ -94,7 +94,7 @@ def patRowsOf (E : Env) (v : Store.View) (t : TriplePattern) (r : TripleRow) : E
 
 /-- The statements a pattern can match under an outer row, through the index whose prefix is
 exactly the bound positions, or the eid lookup when the eid is bound. -/
-def candidateRows (E : Env) (v : Store.View) (t : TriplePattern) (a : Row) : EvM (List TripleRow) := do
+def candidateScan (E : Env) (v : Store.View) (t : TriplePattern) (a : Row) : EvM (List TripleRow) := do
   let byEid : Option Value := t.eid.bind fun ev => a.get (E.idx ev)
   match byEid with
   | some val =>
@@ -106,9 +106,14 @@ def candidateRows (E : Env) (v : Store.View) (t : TriplePattern) (a : Row) : EvM
     let some p ← posId E a t.p | return []
     let some o ← posId E a t.o | return []
     let (ord, pfx) := indexFor s p o
-    let rows ← liftR (rangeScan ord v pfx)
-    let set := E.sem.graphSet == .setOfTriples && t.eid.isNone
-    return if set && t.graph == .any then dedupAdj rows else rows
+    liftR (rangeScan ord v pfx)
+
+/-- The candidates, with adjacent equal-content statements dropped under `SetOfTriples` without
+an eid variable or graph selector. -/
+def candidateRows (E : Env) (v : Store.View) (t : TriplePattern) (a : Row) : EvM (List TripleRow) := do
+  let rows ← candidateScan E v t a
+  let set := E.sem.graphSet == .setOfTriples && t.eid.isNone
+  return if set && t.graph == .any then dedupAdj rows else rows
 
 /-- The pattern rows compatible candidates of an outer row (a set under `SetOfTriples`
 without an eid variable). -/
@@ -281,12 +286,20 @@ where
       let (now, later) := pending.partition fun c => c.early && c.vars.all bound.contains
       go (Schema.union P Q) (now.foldl (fun r c => filterB c.cond r) rows) bound later rest
 
-/-- A constant whose value equality is term identity (not a number or a date-time), so an
-equality with it can become a key-prefix constraint. -/
+/-- A value whose value equality is term identity: the only value `valueEq` to it is itself.
+Ids, booleans, plain strings, typed literals and non-skolem IRIs. Not numbers or date-times
+(compared by value), dates (beyond the 64-bit range their keys alias), language strings (a
+NUL in the text or a tag in another case gives the same sort key) or skolem IRIs (equal to an
+id). -/
+def identityKey : Value → Bool
+  | .iri s => (skolemValue? s).isNone
+  | .node _ | .bnode _ | .stmt _ | .tx _ | .bool _ | .str _ | .typed .. => true
+  | _ => false
+
+/-- A constant whose value equality is term identity, so an equality with it can become a
+key-prefix constraint. -/
 def identityConst? : RExpr → Option Value
-  | .const k => match k with
-    | .int _ | .double _ | .decimal _ | .dateTime .. => none
-    | _ => some k
+  | .const k => if identityKey k then some k else none
   | _ => none
 
 /-- `?v = k` with an identity constant: the position and the constant. -/

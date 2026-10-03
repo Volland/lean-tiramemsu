@@ -56,6 +56,9 @@ import TiramemsuProofs.Query.OrderLimit
 import TiramemsuProofs.Query.EvalDenote
 import TiramemsuProofs.Query.EvalSim
 import TiramemsuProofs.Query.EvalDenoteTop
+import TiramemsuProofs.Query.Reachable
+import TiramemsuProofs.Prov.Erase
+import TiramemsuProofs.Prov.Erasure
 import TiramemsuProofs.Path.Lang
 import TiramemsuProofs.Path.Dfa
 import TiramemsuProofs.Path.Expr

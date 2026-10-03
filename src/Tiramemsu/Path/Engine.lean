@@ -165,8 +165,15 @@ def graphsOfView (v : Store.View) : EvM (List Int64) := do
     let ms ← liftR (rangeScan .pos v [ig])
     return (ms.map (·.o)).eraseDups.mergeSort fun a b => decide (a.toInt ≤ b.toInt)
 
-/-- The pattern rows of a path pattern under an outer row. -/
-def evalPath (opts : PathOpts) : PathE := fun E p a => do
+/-- A pattern row with what provenance reads of it: the hops of the engine row it comes from
+(none for the zero-hop row of an unstored endpoint) and the graph scope of that run. -/
+abbrev WRow := Row × List Hop × Option (List Int64)
+
+/-- The hops of an engine row's path value. -/
+def PathRow.hopsOf (r : PathRow) : List Hop := (r.path.map (·.hops)).getD []
+
+/-- The pattern rows of a path pattern under an outer row, with their hops and graph scope. -/
+def evalPathW (opts : PathOpts) (E : Env) (p : PathPattern) (a : Row) : EvM (List WRow) := do
   let s? ← endpoint E a p.start
   let e? ← endpoint E a p.end
   -- an endpoint value that is not stored has no statement: only the zero-hop match remains
@@ -183,7 +190,7 @@ def evalPath (opts : PathOpts) : PathE := fun E p a => do
         let gs ← graphsOfView (← resolveViewE p.view)
         gs.mapM fun g => do pure (some (gv, ← decodeE g))
       | _ => pure [none]
-    return graphs.filterMap fun g => Id.run do
+    return (graphs.filterMap fun g => Id.run do
       let mut row := Row.empty E.n
       for t in [p.start, p.end] do
         if let .var v := t then
@@ -197,7 +204,7 @@ def evalPath (opts : PathOpts) : PathE := fun E p a => do
         match bindVal E gv gval row with
         | some r => row := r
         | none => return none
-      return some row
+      return some row).map fun row => (row, [], none)
   let maxHops := match p.maxHops with
     | some h => some h
     | none => if p.mode == .trail then some opts.maxHops else none
@@ -221,25 +228,32 @@ def evalPath (opts : PathOpts) : PathE := fun E p a => do
         let rows ← run opts { start := eid, expr := .inv p.path, mode := p.mode, maxHops, view := p.view, graphs }
         return rows.map fun r => { r with start := r.end, «end» := r.start, path := r.path.map PathValue.reversed }
     | none, none => throw (.unsupported "path needs a bound endpoint")
+  let rowsOf (graphs : Option (List Int64)) (gb : Option (Var × Value)) (rows : List PathRow) :
+      EvM (List WRow) :=
+    rows.filterMapM fun r => do return (← patternRow E p r gb).map (·, r.hopsOf, graphs)
   match p.graph with
   | .any => do
     let rows ← one none
-    return (← rows.filterMapM fun r => patternRow E p r none)
+    rowsOf none none rows
   | .set gs => do
     let ids ← gs.filterMapM fun g => match g with
       | .const c => lookupE c.canonical
       | .id o => pure (some o.raw)
       | _ => pure none
     let rows ← one (some ids)
-    return (← rows.filterMapM fun r => patternRow E p r none)
+    rowsOf (some ids) none rows
   | .var gv => do
     let v ← resolveViewE p.view
     let gs ← graphsOfView v
     let parts ← gs.mapM fun g => do
       let rows ← one (some [g])
       let gval ← decodeE g
-      rows.filterMapM fun r => patternRow E p r (some (gv, gval))
+      rowsOf (some [g]) (some (gv, gval)) rows
     return parts.flatten
+
+/-- The pattern rows of a path pattern under an outer row. -/
+def evalPath (opts : PathOpts) : PathE := fun E p a => do
+  return (← evalPathW opts E p a).map (·.1)
 
 /-- The reference semantics of path patterns: the engine run on the model state. -/
 def denotePath (opts : PathOpts) : PathSem := fun E p a =>

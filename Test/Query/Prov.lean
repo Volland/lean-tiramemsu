@@ -80,6 +80,16 @@ def main : IO UInt32 := do
     let pp : PathPattern := { start := .const (v "a"), «end» := .var "y", path := .plus (.atom (Vocab.vIri "knows")), mode := .trail }
     runProv "trail cites hops" f4 { root := .path pp } [([some (v "b")], [1]), ([some (v "c")], [1, 2])]
     runProv "reach cites nothing" f4 { root := .path { pp with mode := .reach } } [([some (v "b")], []), ([some (v "c")], [])]
+    -- regression: an unstored start with a nullable path has its zero-hop row, citing nothing
+    let pz : PathPattern := { start := .const (v "nowhere"), «end» := .var "y", path := .star (.atom (Vocab.vIri "knows")), mode := .trail }
+    runProv "unstored start, zero hops" f4 { root := .path pz } [([some (v "nowhere")], [])]
+    -- graph-scoped trail cites its hops and the memberships used
+    let f5 ← buildBoth "prov5" [do
+      let e1 ← assertV (v "a") (v "knows") (v "b")
+      let _ ← TxProg.verb (.addToGraph e1.eid (← enc (v "g1")) {})
+      let _ ← assertV (v "b") (v "knows") (v "c"); pure ()]
+    runProv "graph-scoped trail cites memberships" f5
+      { root := .path { pp with graph := .set [.const (v "g1")] } } [([some (v "b")], [1, 2])]
     pure () : TestM Unit).run {}
   finish "provenance scenarios" r
 

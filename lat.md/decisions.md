@@ -79,3 +79,13 @@ Where the Lean engine differs from the pinned Rust on purpose; each is registere
 - Graph listing: the graphs of a view are a set; Rust lists a graph once per visible declaration when `sys:inGraph` was never interned.
 - Storage errors in speculation: when a speculation or dry run body fails with a SQLite storage error, its allocated ids are lost with the aborted transaction instead of burned; Rust burns them from memory.
 
+## D17 Listed M3a Deviations
+
+Where the Lean query core differs from the pinned Rust on purpose; each observable one is registered in `oracle/deviations.toml` and accepted by the query oracle only in its stated form.
+
+- `explain()` returns the Lean physical plan, not SQLite `EXPLAIN QUERY PLAN`; there is no `tm_path` table function and no host abstraction.
+- Aggregates fold in the canonical value order: `SAMPLE` is the group's least value, `GROUP_CONCAT` concatenates in that order, double `SUM`/`AVG` may differ in the last bits.
+- Spec-mandated results where Rust differs: a grouped aggregate over an empty input returns no row, a constant `Extend` in an optional's right side is unbound on unmatched rows, a `Union` mixing stored and computed values evaluates, and `AsOf(t)` virtual predicates hide later retractions.
+- Value equality compares node, blank-node, statement and transaction ids exactly; their sort keys alias only beyond `2^64`, which Rust's `u64` ids cannot reach, so this is not observable against Rust.
+- An end-bound `ANY_SHORTEST` path breaks ties from its end, as Rust does by inverting the path; it agrees with the search from the start only on endpoints and hop counts.
+

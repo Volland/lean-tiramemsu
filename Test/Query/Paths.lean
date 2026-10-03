@@ -340,6 +340,22 @@ def main (seeds : Nat := 40) : IO UInt32 := do
     match denoteQ st13.st [] { root := .path pp } with
     | .ok (p, b) => checkEq "end-bound pattern" ((b.map p.project).length) 2
     | .error e => check "end-bound pattern" false (toString e)
+    -- ANY_SHORTEST from the end: a shortest path between the same endpoints (same hop count as
+    -- from the start); which of two tied paths is chosen follows the hop keys read from the end
+    let st14 ← buildBoth "paths14" [do knows "a" "b"; knows "b" "c"; knows "a" "d"; knows "d" "c"]
+    let anyE : PathPattern := { start := .var "x", «end» := .const (v "c"), path := .plus (.atom (Vocab.vIri "knows")),
+                                mode := .anyShortest, bindPath := some "pv" }
+    match denoteQ st14.st [] { root := .path anyE }, runP st14.st (v "a") "knows+" .anyShortest with
+    | .ok (p, b), .ok fwd =>
+      let fromA := (b.map p.project).filter fun r => r.head? == some (some (v "a"))
+      checkEq "any shortest from the end: one row from a" fromA.length 1
+      let fwdHops := (fwd.filter (·.end == idOf st14.st (v "c"))).map (·.hops)
+      checkEq "any shortest from the start: hops to c" fwdHops [2]
+      match evalModel st14.st [] { root := .path anyE } with
+      | .ok (p', b') => checkEq "any shortest from the end: evaluator = reference" (rowsOf p' b') (rowsOf p b)
+      | .error e => check "any shortest from the end: evaluator" false (toString e)
+    | _, _ => check "any shortest from the end" false "error"
+    st14.db.close
     let unbound : PathPattern := { start := .var "x", «end» := .var "y", path := .atom (Vocab.vIri "knows") }
     checkEq "needs a bound endpoint" (showErr (denoteQ st13.st [] { root := .path unbound })) "Unsupported"
     -- a path joined with a pattern binding its start, on every store

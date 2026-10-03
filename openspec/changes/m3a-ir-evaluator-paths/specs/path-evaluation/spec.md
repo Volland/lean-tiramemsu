@@ -136,7 +136,11 @@ A path SHALL be evaluated from its start when the start is bound, else from its 
 
 #### Scenario: Machine-checked evaluation from the end
 - **WHEN** the proofs library builds
-- **THEN** "evaluating from the end with the inverse expression yields exactly the reversed rows of evaluating from the start" holds as a theorem whose axioms satisfy the proof policy
+- **THEN** "for `REACH`, `TRAIL` and `ALL_SHORTEST`, evaluating from the end with the inverse expression yields exactly the reversed rows of evaluating from the start; for `ANY_SHORTEST`, it yields a row between two endpoints exactly when evaluating from the start does, and such rows have the same hop count (each a shortest matching path, not necessarily the same one, since each direction breaks ties by the hop keys read from its own start)" holds as a theorem whose axioms satisfy the proof policy
+
+#### Scenario: ANY_SHORTEST from the end picks its own tie-break
+- **WHEN** two shortest paths join `a` and `c` and `(?x, e, c)` is evaluated in `ANY_SHORTEST` mode with only the end bound
+- **THEN** the row from `a` has the shortest length, and its path is the hop-key-least one read from `c` (as in Rust, which also inverts the path), not necessarily the one evaluation from `a` returns
 
 ### Requirement: Path rows
 Each row SHALL carry the start, the end, the hop count, and the arrival (absent unless the search is time-respecting). In `TRAIL`, `ANY_SHORTEST` and `ALL_SHORTEST` modes each row SHALL also carry a path value: hops + 1 nodes and, per hop, the traversed statement's eid, its predicate (a reserved id outside the dictionary naming the `sys:` IRI for a virtual hop) and its direction. Rows of the path-returning modes SHALL come in non-decreasing hops, then by hop-key sequence. For the same state, view, start, expression, mode and bound, the rows and their order SHALL be identical on every run.

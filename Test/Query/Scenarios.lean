@@ -244,6 +244,20 @@ def main : IO UInt32 := do
       match ref, evalModel st.st [] (sp (.join perm)) with
       | .ok (p, b), .ok (p', b') => checkEq "every order agrees" (rowsBy p' cols b') (rowsBy p cols b)
       | _, _ => check "every order agrees" false "error"
+    -- regression: constant equalities seed key prefixes only for identity constants. A statement
+    -- id beyond 2^64 shares its sort key with a small one but is a different value; a language
+    -- string with a NUL shares its key with another split of the same bytes (not seeded).
+    let big : Nat := 2 ^ 64
+    let sl ← buildBoth "q-seed" [facts [("alice", "label", .langStr "a\x00x" "y")]]
+    for k in [1, 2, 3, 4] do
+      expectRows s!"seed: statement id {k} + 2^64" st
+        (sp (.project ["x"] false (.filter (eq (x "e") (c (.stmt (big + k)))) (tpe "?x" "worksAt" "?c" "e")))) []
+      expectRows s!"seed: statement id {k} + 2^64, constant first" st
+        (sp (.project ["x"] false (.filter (eq (c (.stmt (big + k))) (x "e")) (tpe "?x" "worksAt" "?c" "e")))) []
+    expectRows "seed: language string with NUL" sl
+      (sp (.project ["x"] false (.filter (eq (x "o") (c (.langStr "a" "x\x00y"))) (tp "?x" "label" "?o"))))
+      [[some (v "alice")]]
+    sl.db.close
     pure () : TestM Unit).run {}
   finish "query scenarios" r
 

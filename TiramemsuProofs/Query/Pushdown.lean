@@ -7,6 +7,7 @@ each conjunct as soon as its variables are bound returns the filtered reference 
 the right side's nested loop, is the reference left join. All statements assume `IdBridge`.
 -/
 import TiramemsuProofs.Query.Inlj
+import TiramemsuProofs.Query.OrderLimit
 
 namespace Tiramemsu.Exec
 
@@ -320,17 +321,89 @@ theorem cmpBytes_eq_symm : ∀ (a b : List UInt8), cmpBytes a b = .eq → cmpByt
         exact cmpBytes_eq_symm xs ys h
 
 theorem valueEq_symm (a b : Value) : valueEq a b = valueEq b a := by
+  have hk : (kindRank a == kindRank b && cmpBytes (sortKey a) (sortKey b) == .eq) =
+      (kindRank b == kindRank a && cmpBytes (sortKey b) (sortKey a) == .eq) := by
+    rw [Bool.eq_iff_iff]; simp only [Bool.and_eq_true, beq_iff_eq]
+    exact ⟨fun ⟨h1, h2⟩ => ⟨h1.symm, cmpBytes_eq_symm _ _ h2⟩, fun ⟨h1, h2⟩ => ⟨h1.symm, cmpBytes_eq_symm _ _ h2⟩⟩
+  have he : (a == b) = (b == a) := by rw [Bool.eq_iff_iff]; simp only [beq_iff_eq]; exact ⟨Eq.symm, Eq.symm⟩
   unfold valueEq
-  cases a <;> cases b <;> simp only [] <;>
-    first
-    | (rw [Bool.eq_iff_iff]; simp only [Bool.and_eq_true, beq_iff_eq];
-       exact ⟨fun ⟨h1, h2⟩ => ⟨h1.symm, cmpBytes_eq_symm _ _ h2⟩, fun ⟨h1, h2⟩ => ⟨h1.symm, cmpBytes_eq_symm _ _ h2⟩⟩)
-    | (rw [Bool.eq_iff_iff]; simp only [beq_iff_eq]; exact ⟨Eq.symm, Eq.symm⟩)
+  cases a <;> cases b <;>
+    simp only [isIdV, Bool.and_self, Bool.and_false, Bool.false_and, Bool.false_eq_true, ↓reduceIte] <;>
+    first | exact he | exact hk
 
 theorem identityConst_some {b : RExpr} {k : Value} (h : identityConst? b = some k) : b = .const k := by
   unfold identityConst? at h
   split at h
   · next k' => split at h <;> (cases h; try rfl)
+  · cases h
+
+/-- `ByteArray.toList` reads the underlying array. -/
+theorem byteArray_toList_loop (bs : ByteArray) : ∀ (n i : Nat), bs.size - i = n → ∀ (r : List UInt8),
+    ByteArray.toList.loop bs i r = r.reverse ++ bs.data.toList.drop i
+  | 0, i, h, r => by
+    rw [ByteArray.toList.loop]
+    have : ¬ i < bs.size := by omega
+    rw [ite_cond_eq_false _ _ (eq_false this)]
+    change ¬ i < bs.data.size at this
+    rw [List.drop_eq_nil_of_le (by rw [Array.length_toList]; omega), List.append_nil]
+  | n + 1, i, h, r => by
+    rw [ByteArray.toList.loop]
+    have hi : i < bs.size := by omega
+    rw [ite_cond_eq_true _ _ (eq_true hi), byteArray_toList_loop bs n (i + 1) (by omega)]
+    have hi' : i < bs.data.toList.length := by rw [Array.length_toList]; exact hi
+    rw [List.drop_eq_getElem_cons hi']
+    simp only [List.reverse_cons, List.append_assoc, List.cons_append, List.nil_append]
+    congr 2
+    simp [ByteArray.get!, Array.getElem!_eq_getD]
+    rw [Array.getElem?_eq_getElem hi]; rfl
+
+theorem byteArray_toList (bs : ByteArray) : bs.toList = bs.data.toList := by
+  simp [ByteArray.toList, byteArray_toList_loop bs _ 0 rfl]
+
+/-- UTF-8 encoding is injective. -/
+theorem utf8_inj {s t : String} (h : s.toUTF8.toList = t.toUTF8.toList) : s = t := by
+  rw [byteArray_toList, byteArray_toList] at h
+  apply String.toByteArray_inj.mp
+  change s.toUTF8 = t.toUTF8
+  cases hs : s.toUTF8; cases ht : t.toUTF8
+  rw [hs, ht] at h
+  simp only [Array.toList_inj] at h
+  rw [h]
+
+theorem cmpBytes_eq_iff (a b : List UInt8) : cmpBytes a b = .eq ↔ a = b := by
+  rw [cmpBytes_eq_cmpNats, cmpNats_eq_iff]
+  exact ⟨fun h => List.map_injective_iff.2 (fun x y hxy => UInt8.toNat_inj.1 hxy) h, fun h => h ▸ rfl⟩
+
+/-- The constants `identityConst?` accepts compare by identity. -/
+theorem idEq_of_identityKey {k : Value} (hk : identityKey k = true) : IdEq k := by
+  intro w h
+  cases k <;> simp only [identityKey, Bool.false_eq_true] at hk <;> cases w <;>
+    simp only [valueEq, isIdV, kindRank, Bool.and_self, Bool.and_false, Bool.false_and, Bool.false_eq_true,
+      ↓reduceIte, beq_iff_eq, Bool.and_eq_true, Nat.reduceEqDiff, false_and, reduceCtorEq] at h <;>
+    first | exact h | (obtain ⟨-, h⟩ := h; rw [cmpBytes_eq_iff] at h)
+  · next s s' =>
+    have hn : skolemValue? s = none := Option.isNone_iff_eq_none.1 hk
+    simp only [sortKey, Value.canonical, hn] at h
+    cases hs : skolemValue? s' with
+    | none =>
+      simp only [hs, strKey, List.cons.injEq] at h
+      rw [utf8_inj h.2]
+    | some p =>
+      obtain ⟨t, n⟩ := p
+      simp only [hs] at h
+      cases t <;> simp [Value.ofAlloc, strKey] at h
+  · next b b' =>
+    cases b <;> cases b' <;> simp_all [sortKey, Value.canonical]
+  · next s' s =>
+    simp only [sortKey, Value.canonical, strKey, List.cons.injEq] at h
+    rw [utf8_inj h.2]
+
+theorem identityConst_idEq {e : RExpr} {k : Value} (h : identityConst? e = some k) : IdEq k := by
+  unfold identityConst? at h
+  split at h
+  · next k' => split at h
+               · next hk => cases h; exact idEq_of_identityKey hk
+               · cases h
   · cases h
 
 theorem holds_cmp_eq {x y : RExpr} {r : Row} (h : (RExpr.cmp .eq x y).holds r = true) :
@@ -362,7 +435,7 @@ theorem holds_eq_const_var {i : Nat} {k : Value} {r : Row} (hr : (RExpr.cmp .eq 
   exact ⟨v, h2, by rw [valueEq_symm]; exact h3⟩
 
 /-- A pushed equality with a constant forces the cell to the constant. -/
-theorem prefixEq_holds {c : RExpr} {i : Nat} {k : Value} (h : prefixEq? c = some (i, k)) (hk : IdEq k)
+theorem prefixEq_holds {c : RExpr} {i : Nat} {k : Value} (h : prefixEq? c = some (i, k))
     {r : Row} (hr : c.holds r = true) : r.get i = some k := by
   unfold prefixEq? at h
   split at h
@@ -372,6 +445,7 @@ theorem prefixEq_holds {c : RExpr} {i : Nat} {k : Value} (h : prefixEq? c = some
     | some k' =>
       rw [hb] at h; simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
+      have hk := identityConst_idEq hb
       rw [identityConst_some hb] at hr
       obtain ⟨w, hw, he⟩ := holds_eq_var_const hr
       rw [hw, hk w he]
@@ -381,6 +455,7 @@ theorem prefixEq_holds {c : RExpr} {i : Nat} {k : Value} (h : prefixEq? c = some
     | some k' =>
       rw [ha] at h; simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
+      have hk := identityConst_idEq ha
       rw [identityConst_some ha] at hr
       obtain ⟨w, hw, he⟩ := holds_eq_const_var hr
       rw [hw, hk w he]

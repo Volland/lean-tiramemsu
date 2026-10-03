@@ -32,7 +32,7 @@
 - [x] 4.2 Add `Exec/Order`: greedy order (bound positions, then per-predicate counts refreshed after commit)
 - [x] 4.3 Prove join-order independence: for every permutation, INLJ = reference natural join, in `TiramemsuProofs/Query/Inlj`; theorem-index entry marked as the M3b contract
 - [x] 4.4 Add `Exec/Eval` for all operators over `SortedRange`, reusing `Sem` for expressions and aggregates
-- [x] 4.5 Prove evaluator = `denote` on `ModelStore` for every plan (exact list under root `OrderLimit`), using the M1 encode/decode bijection for the id/value bridge
+- [x] 4.5 Prove evaluator = `denote` on `ModelStore` for every plan (exact list under root `OrderLimit`), using the M1 encode/decode bijection for the id/value bridge — `eval_eq_denote` under `IdBridge` and `isoLocal`; the former hypothesis that seeded equality constants compare by identity is gone: `identityConst?` now accepts only identity constants (`identityConst_idEq`) and `valueEq` compares ids exactly (seeding had returned rows differing from `denote` for ids ≥ 2^64 and NUL-bearing language strings; regression tests in `Test/Query/Scenarios`); `eval_eq_denote_reachable` derives the store half of `IdBridge` for every state reachable by transactions, the dictionary half (`TermBridge`) stays assumed (`TiramemsuProofs/Query/Reachable` says why)
 - [x] 4.6 Test: every permutation of 2–5-pattern joins on random stores equals `denote`
 
 ## 5. Push-down and binding passing
@@ -69,22 +69,22 @@
 ## 9. Path patterns in queries
 
 - [x] 9.1 Add `Path/Engine` and wire `PathPattern` into `denote` and `Exec/Eval`: start-bound or end-bound with the inverse expression, `Unsupported` without a bound endpoint, `bindPath`, graph selectors `Set` and `Var`
-- [ ] 9.2 Prove evaluation from the end equals the reversed rows from the start — proven for REACH (`reach_fromEnd`), TRAIL (`trail_fromEnd`) and ALL_SHORTEST (`allShortest_fromEnd`) over any reversible hop relation (`viewHop_symm`); open for ANY_SHORTEST, where it is false as stated: each search breaks ties among minimal paths by hop keys read from its own start, so only "a minimal path per start, each start once" holds (`anyShortest_fromEnd`); the engine-level `evalPath` wiring (context built by `run`) is not restated
+- [x] 9.2 Prove evaluation from the end equals the reversed rows from the start (REACH, TRAIL, ALL_SHORTEST) and, for ANY_SHORTEST, has a row between the same endpoints exactly when evaluation from the start does, with the same hop count — proven for REACH (`reach_fromEnd`), TRAIL (`trail_fromEnd`) and ALL_SHORTEST (`allShortest_fromEnd`) over any reversible hop relation (`viewHop_symm`); for ANY_SHORTEST the reversed-rows statement is false (each search breaks ties among minimal paths by hop keys read from its own start), so the requirement was amended to the weaker statement, proven as `anyShortest_fromEnd_len` (with `anyShortest_fromEnd`: a minimal path per start, each start once); Rust also evaluates an end-bound pattern by inverting it (`plan/route.rs` `orient`), so this is no deviation, and the differential IR suite now also draws end-bound path patterns; the engine-level `evalPath` wiring (context built by `run`) is not restated
 - [x] 9.3 Extend 4.5 to trees containing path patterns
 
 ## 10. Query provenance
 
 - [x] 10.1 Add `Prov/EvalProv` with the citation rules of `query-provenance` (set-of-triples siblings, memberships, LeftJoin, Union, distinct merge, aggregate union, path hops) and ascending duplicate-free eid lists
-- [ ] 10.2 Prove erasure: rows without eid lists = `denote`
-- [ ] 10.3 Define the witness semantics `denoteW` and prove soundness (cited eids visible in a citing leaf's view and supporting the row) and sufficiency (row ∈ `denoteW` restricted to its citations)
+- [x] 10.2 Prove erasure: rows without eid lists = `denote` — `evalQueryProv_erase` (`TiramemsuProofs/Prov/Erasure`): whenever `Query.denote` returns a bag, `evalQueryProv` returns annotated rows whose rows are a permutation of it (same hypotheses as the evaluator theorem: `IdBridge`, `OpOk`); operator erasures in `TiramemsuProofs/Prov/Erase`; it exposed and fixed a provenance bug (an unstored path endpoint with a nullable path lost its zero-hop row): `pathProv` now runs the engine's `evalPathW` (rows with their hops and graph scope, which `evalPath` maps to rows) and `triplePatProv` reads through `candidateScan` (`candidateRows` without adjacent deduplication), behaviour otherwise unchanged
+- [ ] 10.3 Define the witness semantics `denoteW` and prove soundness (cited eids visible in a citing leaf's view and supporting the row) and sufficiency (row ∈ `denoteW` restricted to its citations) — open: no witness semantics yet; the erasure lemmas (`TiramemsuProofs/Prov/Erase`) and `evalPathW` are the intended base
 - [x] 10.4 Tests for every `query-provenance` scenario, including stale-answer detection
 
 ## 11. Fact bundles
 
 - [x] 11.1 Add `Bundle/Value` and `Bundle/Export`: dependents plus downward closure, exclusions to a fixed point, reference order with source-eid ties, cycle members last, anonymous labels by first appearance, `NotLive`/`Unsupported` roots
 - [x] 11.2 Add `Bundle/Import` as a `TxM` program: structure and cycle checks before writing, `addToGraph` for memberships, `assert` otherwise, fresh node per label, import report
-- [ ] 11.3 Prove the round trip (fresh store, then re-export, equal up to id renaming after collapsing equal content) in `TiramemsuProofs/Bundle/RoundTrip`
-- [ ] 11.4 Prove re-import of a label-free bundle changes no live statement and reports nothing new
+- [ ] 11.3 Prove the round trip (fresh store, then re-export, equal up to id renaming after collapsing equal content) in `TiramemsuProofs/Bundle/RoundTrip` — open: needs the import program (`TxProg` loops over verbs) reasoned about on a fresh store and the export read program on the result
+- [ ] 11.4 Prove re-import of a label-free bundle changes no live statement and reports nothing new — open: needs `assert_twice`-style idempotence lifted through the import loops, plus `addToGraph` and `encode` idempotence
 - [x] 11.5 Add `Bundle/Json` (`tiramemsu-bundle/1`), round-trip property test, byte comparison with the Rust oracle
 - [x] 11.6 Tests for every `fact-bundles` scenario, including as-of export and atomic schema failure
 
@@ -111,7 +111,7 @@
 
 ## 15. Proof gates, documentation and validation
 
-- [ ] 15.1 Add every Tier 2 theorem to the theorem index against its requirement; CI axiom check passes with no `sorry`, `partial`, `native_decide` or user axioms in the new modules
-- [ ] 15.2 Update `lat.md/` (architecture and verification sections for the evaluator, paths, provenance and bundles; the listed deviations), linking each section to the new modules
-- [ ] 15.3 Run `lat check` and fix all failures
-- [ ] 15.4 Run `openspec validate m3a-ir-evaluator-paths --strict` and fix all failures
+- [ ] 15.1 Add every Tier 2 theorem to the theorem index against its requirement; CI axiom check passes with no `sorry`, `partial`, `native_decide` or user axioms in the new modules — open: `policy-check --change m3a-ir-evaluator-paths --strict` reports 4 violations, exactly the requirements of 10.3, 11.3 and 11.4; everything else is indexed and passes the axiom rule
+- [x] 15.2 Update `lat.md/` (architecture and verification sections for the evaluator, paths, provenance and bundles; the listed deviations), linking each section to the new modules
+- [x] 15.3 Run `lat check` and fix all failures
+- [x] 15.4 Run `openspec validate m3a-ir-evaluator-paths --strict` and fix all failures

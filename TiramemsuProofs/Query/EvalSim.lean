@@ -58,7 +58,7 @@ theorem eval_sim : ∀ (op : IR.Op), OpOk E.iso E.vars op → ∀ b, denote (E.a
       exact ev_virtualPat hB E hv (checkOp_virtual hc hv) hd'
     | none =>
       simp only []
-      obtain ⟨R, h1, h2⟩ := ev_joinCore_single hB hp hv hok [] (fun _ h => by cases h) (fun _ h => by cases h)
+      obtain ⟨R, h1, h2⟩ := ev_joinCore_single hB hp hv hok [] (fun _ h => by cases h)
       refine ⟨R, h1, h2.trans (List.Perm.of_eq ?_)⟩
       rw [triplePat_eq hB E hv] at hd'
       cases hd'
@@ -88,7 +88,7 @@ theorem eval_sim : ∀ (op : IR.Op), OpOk E.iso E.vars op → ∀ b, denote (E.a
     simp only []
     subst hx1 hx2 hx3
     rw [othD_eq] at h2
-    obtain ⟨R, hR1, hR2⟩ := ev_joinCore hB hp ins hrel [] (fun _ h => by cases h) (fun _ h => by cases h) h2
+    obtain ⟨R, hR1, hR2⟩ := ev_joinCore hB hp ins hrel [] (fun _ h => by cases h) h2
     refine ⟨R, hR1, hR2.trans (List.Perm.of_eq ?_)⟩
     rw [h3, show L.filter (allHold []) = L from List.filter_eq_self.2 (fun _ _ => rfl)]
     rfl
@@ -144,8 +144,6 @@ theorem eval_sim : ∀ (op : IR.Op), OpOk E.iso E.vars op → ∀ b, denote (E.a
       rw [splitAnd_holds, heq.holds]
     have hpush : ∀ c ∈ (splitAnd c'').map Pushed.ofR, PushedOk c := by
       intro c hc; obtain ⟨e, _, rfl⟩ := List.mem_map.1 hc; exact pushedOk_ofR e
-    have hidc : ∀ c ∈ (splitAnd c'').map Pushed.ofR, ∀ i k, prefixEq? c.cond = some (i, k) → IdEq k := by
-      intro c hc i k hpk; obtain ⟨e, he, rfl⟩ := List.mem_map.1 hc; exact hpa e he i k hpk
     have hfa : ∀ r, allHold ((splitAnd c'').map Pushed.ofR) r = c'.holds r := fun r => by
       rw [allHold_ofR, hcs]
     cases x with
@@ -157,7 +155,7 @@ theorem eval_sim : ∀ (op : IR.Op), OpOk E.iso E.vars op → ∀ b, denote (E.a
       simp only []
       subst hx1 hx2 hx3
       rw [othD_eq] at h2
-      obtain ⟨R, hR1, hR2⟩ := ev_joinCore hB hp ins hrel _ hpush hidc h2
+      obtain ⟨R, hR1, hR2⟩ := ev_joinCore hB hp ins hrel _ hpush h2
       refine ⟨R, hR1, hR2.trans (List.Perm.of_eq ?_)⟩
       rw [h3, Env.at_iso, isoFilter_filter]
       unfold filterB
@@ -171,7 +169,7 @@ theorem eval_sim : ∀ (op : IR.Op), OpOk E.iso E.vars op → ∀ b, denote (E.a
       | none =>
         simp only []
         rw [hcu, ev_bind_ok st (ev_liftEx_ok st u)]
-        obtain ⟨R, h1, h2⟩ := ev_joinCore_single hB hp hv hx _ hpush hidc
+        obtain ⟨R, h1, h2⟩ := ev_joinCore_single hB hp hv hx _ hpush
         refine ⟨R, h1, h2.trans (List.Perm.of_eq ?_)⟩
         rw [triplePat_eq hB E hv] at hbx'
         cases hbx'
@@ -337,7 +335,7 @@ theorem resolveX_sim : ∀ (e : Expr), ExprOk E.iso E.vars e → ∀ e', resolve
   | .const v, hok, e', hd => by
     simp only [resolveE] at hd; cases hd
     refine ⟨_, rfl, EqE.refl _, fun k hk => ?_, (prefOk_ne fun _ _ h => by cases h), ?_⟩
-    · exact hok k hk
+    · exact identityConst_idEq hk
     · intro c hc; simp only [splitAnd, List.mem_singleton] at hc; subst hc; exact prefOk_ne fun _ _ h => by cases h
   | .param _, _, e', hd => by
     simp only [resolveE] at hd; cases hd
@@ -352,7 +350,7 @@ theorem resolveX_sim : ∀ (e : Expr), ExprOk E.iso E.vars e → ∀ e', resolve
       exact exprSim_of (EqE.refl _) (fun _ h => by cases h) (prefOk_ne fun _ _ h => by cases h) (fun _ h => by cases h)
     · simp only [hv, Bool.false_eq_true, ite_false]
       refine ⟨EqE.refl _, fun k hk => ?_, (prefOk_ne fun _ _ h => by cases h), ?_⟩
-      · simp [identityConst?] at hk; subst hk; exact idEq_false
+      · exact identityConst_idEq hk
       · intro c hc; simp only [splitAnd, List.mem_singleton] at hc; subst hc
         exact prefOk_ne fun _ _ h => by cases h
   | .cmp op a b, hok, e', hd => by

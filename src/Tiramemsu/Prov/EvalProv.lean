@@ -112,78 +112,37 @@ def patRowsProv (E : Env) (v : Store.View) (t : TriplePattern) (r : TripleRow) :
     let ms ← membershipsProv v r.eid
     return ms.filterMap fun (g, me) => (bindVal E gv g row).map (·, cite [r.eid] [me])
 
-/-- The annotated bag of a stored triple pattern (read through the constant key prefix). -/
+/-- The annotated bag of a stored triple pattern (read through the constant key prefix). The
+scan keeps every eid (no adjacent deduplication), so under `SetOfTriples` without an eid
+variable a row cites every visible eid with the matched content. -/
 def triplePatProv (E : Env) (t : TriplePattern) : EvM ABag := do
   let v ← resolveViewE t.view
-  let rows ← candidateRows E v { t with eid := t.eid } []
-  -- under SetOfTriples without an eid variable every eid of the matched content is cited:
-  -- scan without the adjacent deduplication
-  let rows ← if E.sem.graphSet == .setOfTriples && t.eid.isNone && t.graph == .any then do
-      let some s ← posId E [] t.s | pure []
-      let some p ← posId E [] t.p | pure []
-      let some o ← posId E [] t.o | pure []
-      let (ord, pfx) := indexFor s p o
-      liftR (rangeScan ord v pfx)
-    else pure rows
+  let rows ← candidateScan E v t []
   let ann := (← rows.mapM (patRowsProv E v t)).flatten
   if E.sem.graphSet == .setOfTriples && t.eid.isNone then
     return (groupCites (·.1) ann).map fun (r, g) => (r, unionCites g)
   else return ann
 
-/-- The annotated rows of a path pattern under an outer row. -/
+/-- The memberships, in the graph scope `gs`, of the statements of some hops. -/
+def hopMemberships (v : Store.View) (gs : List Int64) (hops : List Hop) : EvM (List Int64) := do
+  let per ← hops.mapM fun h => do
+    let ms ← membershipsProv v h.eid
+    let ok ← ms.mapM fun (g, me) => do
+      return if gs.contains ((← lookupE g).getD 0) then some me else none
+    return ok.filterMap id
+  return per.flatten
+
+/-- The annotated rows of a path pattern under an outer row: the engine's pattern rows, each
+citing its hops' statements and, graph-scoped, the memberships used (nothing in `REACH`). -/
 def pathProv (opts : PathOpts) (E : Env) (p : PathPattern) (a : Row) : EvM ABag := do
-  -- the plain rows, matched with the engine rows they come from
-  let s? ← endpoint E a p.start
-  let e? ← endpoint E a p.end
-  let maxHops := match p.maxHops with
-    | some h => some h
-    | none => if p.mode == .trail then some opts.maxHops else none
-  let graphsOf : EvM (List (Option (List Int64) × Option (Var × Value))) := match p.graph with
-    | .any => pure [(none, none)]
-    | .set gs => do
-      let ids ← gs.filterMapM fun g => match g with
-        | .const c => lookupE c.canonical
-        | .id o => pure (some o.raw)
-        | _ => pure none
-      pure [(some ids, none)]
-    | .var gv => do
-      let v ← resolveViewE p.view
-      let gs ← graphsOfView v
-      gs.mapM fun g => do pure (some [g], some (gv, ← decodeE g))
+  let ws ← evalPathW opts E p a
   let v ← resolveViewE p.view
-  let mut out : ABag := []
-  for (graphs, gb) in ← graphsOf do
-    let rows ← match s?, e? with
-      | some s, _ => do
-        match ← lookupE s with
-        | none => pure []
-        | some sid =>
-          let rows ← run opts { start := sid, expr := p.path, mode := p.mode, maxHops, view := p.view, graphs }
-          match e? with
-          | some e => do
-            match ← lookupE e with
-            | some eid => pure (rows.filter (·.end == eid))
-            | none => pure []
-          | none => pure rows
-      | none, some e => do
-        match ← lookupE e with
-        | none => pure []
-        | some eid =>
-          let rows ← run opts { start := eid, expr := .inv p.path, mode := p.mode, maxHops, view := p.view, graphs }
-          pure (rows.map fun r => { r with start := r.end, «end» := r.start, path := r.path.map PathValue.reversed })
-      | none, none => throw (.unsupported "path needs a bound endpoint")
-    for r in rows do
-      if let some row ← patternRow E p r gb then
-        let hops := (r.path.map (·.hops)).getD []
-        let mut es := if p.mode == .reach then [] else hops.map (·.eid)
-        if p.mode != .reach then
-          if let some gs := graphs then
-            for h in hops do
-              let ms ← membershipsProv v h.eid
-              for (g, me) in ms do
-                if gs.contains (← lookupE g |>.map (·.getD 0)) then es := es ++ [me]
-        out := out ++ [(row, sortDedup es)]
-  return out
+  ws.mapM fun (row, hops, graphs) => do
+    if p.mode == .reach then return (row, [])
+    let ms ← match graphs with
+      | some gs => hopMemberships v gs hops
+      | none => pure []
+    return (row, sortDedup (hops.map (·.eid) ++ ms))
 
 /-! ## The annotated evaluator -/
 
